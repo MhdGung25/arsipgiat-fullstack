@@ -8,7 +8,6 @@ import logo from "../assets/logo-rancaekek.png";
 const Login = () => {
   const navigate = useNavigate();
   
-  // State form & UI
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -21,24 +20,20 @@ const Login = () => {
     setLoading(true);
 
     try {
-      // Proses autentikasi murni menggunakan Firebase Auth
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Simpan sesi user ke localStorage
       localStorage.setItem('user', JSON.stringify({
         uid: user.uid,
         email: user.email,
-        name: 'Linda Agustina.A.Md',
+        nama: 'Linda Agustina.A.Md',
         jabatan: 'ARSIPARIS TERAMPIL',
         role: 'admin'
       }));
 
-      // Redirect ke halaman utama/dashboard setelah berhasil login
       navigate('/', { replace: true });
     } catch (err) {
       console.error('Gagal login:', err);
-      // Tangani pesan error Firebase yang umum
       switch (err.code) {
         case 'auth/invalid-email':
           setError('Format email tidak valid.');
@@ -64,12 +59,10 @@ const Login = () => {
     <div className="min-h-screen w-full flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 sm:p-6 overflow-y-auto transition-colors duration-300">
       <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-xl dark:shadow-slate-950/50 border border-gray-100 dark:border-slate-800 p-6 sm:p-8 overflow-hidden relative transition-colors duration-300 my-auto">
         
-        {/* Dekorasi Background */}
         <div className="absolute -top-16 -right-16 w-40 h-40 bg-emerald-50 dark:bg-emerald-950/30 rounded-full opacity-50 pointer-events-none"></div>
         <div className="absolute -bottom-16 -left-16 w-32 h-32 bg-emerald-50 dark:bg-emerald-950/30 rounded-full opacity-50 pointer-events-none"></div>
 
         <div className="relative z-10">
-          {/* Logo & Judul */}
           <div className="text-center mb-8">
             <img 
               src={logo} 
@@ -84,16 +77,13 @@ const Login = () => {
             </p>
           </div>
 
-          {/* Pesan Error */}
           {error && (
             <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-300 text-sm p-3 rounded-xl mb-5 font-medium text-center">
               {error}
             </div>
           )}
 
-          {/* Form Login */}
           <form onSubmit={handleLogin} className="space-y-4">
-            {/* Input Email */}
             <div>
               <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5 pl-1">
                 Email
@@ -114,7 +104,6 @@ const Login = () => {
               </div>
             </div>
 
-            {/* Input Password */}
             <div>
               <label className="block text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5 pl-1">
                 Password
@@ -142,7 +131,6 @@ const Login = () => {
               </div>
             </div>
 
-            {/* Tombol Masuk */}
             <button 
               type="submit" 
               disabled={loading}

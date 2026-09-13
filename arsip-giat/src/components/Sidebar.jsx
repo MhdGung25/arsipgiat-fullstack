@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { LayoutDashboard, Calendar, Mail, FileCheck, LogOut, X } from "lucide-react";
 import { signOut } from "firebase/auth";
-import { auth } from "../firebase"; // Sesuaikan path file firebase.js kamu
+import { auth } from "../firebase";
 import logoRancaekek from "../assets/logo-rancaekek.png";
 
 const Sidebar = ({ isOpen, onClose, user, onLogout }) => {
@@ -12,27 +12,22 @@ const Sidebar = ({ isOpen, onClose, user, onLogout }) => {
     { path: "/disposisi", label: "Disposisi", icon: FileCheck },
   ];
 
-  // Handler Logout dengan Firebase Auth & LocalStorage Reset
   const handleLogout = async () => {
     try {
-      // 1. Logout dari Firebase Authentication
       await signOut(auth);
     } catch (error) {
-      console.error("Gagal melakukan sign out dari Firebase:", error);
+      console.error("Gagal sign out dari Firebase:", error);
     }
 
-    // 2. Hapus semua data dari LocalStorage & SessionStorage
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.clear();
     sessionStorage.clear();
 
-    // 3. Jalankan callback logout bawaan jika ada
     if (typeof onLogout === "function") {
       onLogout();
     }
 
-    // 4. Paksa redirect ke /login sekaligus reset state aplikasi
     window.location.href = "/login";
   };
 
@@ -43,13 +38,13 @@ const Sidebar = ({ isOpen, onClose, user, onLogout }) => {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
+  // Mengambil data murni dari state akun yang aktif
   const displayName = user?.nama || user?.name || "Pengguna";
   const displaySub = user?.jabatan || user?.role || "Staff";
   const avatarUrl = user?.avatar;
 
   return (
     <>
-      {/* Overlay Gelap Mode Mobile */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden transition-opacity"
@@ -57,15 +52,12 @@ const Sidebar = ({ isOpen, onClose, user, onLogout }) => {
         />
       )}
 
-      {/* Container Sidebar Utama */}
       <aside
         className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#111827] text-slate-300 flex flex-col justify-between transition-transform duration-300 ease-in-out border-r border-slate-800/50 md:static md:translate-x-0 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {/* Area Atas: Header & Navigasi */}
         <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
-          {/* Header */}
           <div className="p-4 border-b border-slate-800/60 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-white rounded-xl p-1.5 flex items-center justify-center shadow-md shrink-0">
@@ -94,7 +86,6 @@ const Sidebar = ({ isOpen, onClose, user, onLogout }) => {
             </button>
           </div>
 
-          {/* Menu Navigasi */}
           <nav className="p-4 space-y-2 flex-1">
             {menuItems.map((item) => {
               const Icon = item.icon;
@@ -119,7 +110,6 @@ const Sidebar = ({ isOpen, onClose, user, onLogout }) => {
           </nav>
         </div>
 
-        {/* Footer (Profil User + Logout) */}
         <div className="p-4 border-t border-slate-800/60 flex items-center justify-between shrink-0 bg-[#111827]">
           <div className="flex items-center gap-3 overflow-hidden">
             {avatarUrl ? (
@@ -144,7 +134,6 @@ const Sidebar = ({ isOpen, onClose, user, onLogout }) => {
             </div>
           </div>
 
-          {/* Tombol Logout */}
           <button
             type="button"
             onClick={handleLogout}
