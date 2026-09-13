@@ -10,7 +10,7 @@ import {
   orderBy, 
   onSnapshot 
 } from "firebase/firestore";
-import { db } from "../firebase"; // Sesuaikan path file firebase.js kamu
+import { db } from "../firebase";
 
 const Navbar = ({ onMenuClick, user }) => {
   const location = useLocation();
@@ -123,15 +123,17 @@ const Navbar = ({ onMenuClick, user }) => {
 
   // Helper Inisial Nama
   const getInitials = (name) => {
-    if (!name) return "AV";
+    if (!name) return "US";
     const parts = name.trim().split(" ").filter(Boolean);
     if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
   const title = getPageTitle(location.pathname);
-  const userName = user?.nama || user?.name || "ADMIN RANCAEKEK";
-  const userEmail = user?.email || "admin@rancaekek.com";
+  
+  // Mengambil data murni dari prop user (tanpa nilai dummy/statis)
+  const userName = user?.nama || user?.name || "Pengguna";
+  const userEmail = user?.email || "";
   const initials = getInitials(userName);
 
   return (
@@ -140,7 +142,7 @@ const Navbar = ({ onMenuClick, user }) => {
       <div className="flex items-center gap-3">
         <button
           onClick={onMenuClick}
-          className="md:hidden p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
+          className="md:hidden p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
           aria-label="Buka Menu"
         >
           <Menu size={20} />

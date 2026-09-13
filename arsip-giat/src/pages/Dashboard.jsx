@@ -124,12 +124,15 @@ const Dashboard = () => {
 
   const counters = data.counters;
   const status = data.disposisi_status;
+  
+  // Mengambil nama user secara dinamis murni dari state login
+  const userName = user?.name || user?.nama || 'Pengguna';
 
   return (
     <div className="space-y-6 p-4 md:p-6 bg-slate-50 dark:bg-slate-950 min-h-screen transition-colors duration-200">
       <div className="bg-gradient-to-r from-emerald-600 to-teal-700 dark:from-emerald-700 dark:to-teal-900 rounded-2xl p-6 text-white shadow-lg shadow-emerald-900/10">
         <h1 className="text-2xl font-bold">
-          Selamat Datang Kembali, {user?.name || user?.nama || 'Admin Rancaekek'}! 👋
+          Selamat Datang Kembali, {userName}! 👋
         </h1>
         <p className="text-emerald-100 text-sm mt-1">
           Berikut adalah ringkasan analitik dan aktivitas terkini di Aplikasi ArsipGiat Kecamatan Rancaekek.
