@@ -52,69 +52,66 @@ const Sidebar = ({ isOpen, onClose, user, onLogout }) => {
         />
       )}
 
-      {/* Container Sidebar Utama dengan tinggi layar penuh yang aman */}
+      {/* Container Sidebar Utama menggunakan flexbox penuh & tinggi layar terkunci */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#111827] text-slate-300 flex flex-col justify-between h-[100dvh] transition-transform duration-300 ease-in-out border-r border-slate-800/50 md:static md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#111827] text-slate-300 flex flex-col h-screen md:h-full transition-transform duration-300 ease-in-out border-r border-slate-800/50 md:static md:translate-x-0 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {/* Bagian Atas: Header Logo & Menu Navigasi (Bisa di-scroll jika menu banyak) */}
-        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
-          {/* Header */}
-          <div className="p-4 border-b border-slate-800/60 flex items-center justify-between shrink-0 bg-[#111827] sticky top-0 z-10">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white rounded-xl p-1.5 flex items-center justify-center shadow-md shrink-0">
-                <img
-                  src={logoRancaekek}
-                  alt="Logo Rancaekek"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              <div>
-                <h2 className="text-sm font-bold tracking-wide text-white uppercase leading-tight">
-                  Arsip Giat
-                </h2>
-                <p className="text-[10px] font-semibold text-emerald-400 tracking-wider uppercase mt-0.5">
-                  Kecamatan Rancaekek
-                </p>
-              </div>
+        {/* Header Logo (Fix di atas, tidak ikut terpotong) */}
+        <div className="p-4 border-b border-slate-800/60 flex items-center justify-between shrink-0 bg-[#111827]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white rounded-xl p-1.5 flex items-center justify-center shadow-md shrink-0">
+              <img
+                src={logoRancaekek}
+                alt="Logo Rancaekek"
+                className="w-full h-full object-contain"
+              />
             </div>
-            
-            <button
-              onClick={onClose}
-              className="md:hidden p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
-              aria-label="Close menu"
-            >
-              <X size={18} />
-            </button>
+            <div>
+              <h2 className="text-sm font-bold tracking-wide text-white uppercase leading-tight">
+                Arsip Giat
+              </h2>
+              <p className="text-[10px] font-semibold text-emerald-400 tracking-wider uppercase mt-0.5">
+                Kecamatan Rancaekek
+              </p>
+            </div>
           </div>
-
-          {/* Menu Navigasi */}
-          <nav className="p-4 space-y-2">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  onClick={onClose}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-                      isActive
-                        ? "bg-[#00a86b] text-white font-semibold shadow-lg shadow-emerald-900/20"
-                        : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
-                    }`
-                  }
-                >
-                  <Icon size={20} />
-                  <span>{item.label}</span>
-                </NavLink>
-              );
-            })}
-          </nav>
+          
+          <button
+            onClick={onClose}
+            className="md:hidden p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+            aria-label="Close menu"
+          >
+            <X size={18} />
+          </button>
         </div>
 
-        {/* Bagian Bawah (Footer): Profil User & Tombol Logout (Terkunci rapi tidak akan terpotong) */}
+        {/* Menu Navigasi (Bisa di-scroll jika menu bertambah banyak) */}
+        <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                onClick={onClose}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all ${
+                    isActive
+                      ? "bg-[#00a86b] text-white font-semibold shadow-lg shadow-emerald-900/20"
+                      : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
+                  }`
+                }
+              >
+                <Icon size={20} />
+                <span>{item.label}</span>
+              </NavLink>
+            );
+          })}
+        </nav>
+
+        {/* Footer: Profil User & Tombol Logout (Terkunci rapi di bawah) */}
         <div className="p-4 border-t border-slate-800/60 flex items-center justify-between shrink-0 bg-[#111827]">
           <div className="flex items-center gap-3 overflow-hidden">
             {avatarUrl ? (
