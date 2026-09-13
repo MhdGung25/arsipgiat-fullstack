@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, LogIn, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../firebase'; // Sesuaikan path jika file firebase.js ada di tempat lain
+import { auth } from '../firebase';
 import logo from "../assets/logo-rancaekek.png";
 
 const Login = () => {
@@ -21,20 +21,23 @@ const Login = () => {
     setLoading(true);
 
     try {
-      // Proses autentikasi menggunakan Firebase Auth
+      // Proses autentikasi murni menggunakan Firebase Auth
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Simpan sesi user ke localStorage (opsional, Firebase juga otomatis menyimpan state di IndexedDB)
+      // Simpan sesi user ke localStorage
       localStorage.setItem('user', JSON.stringify({
         uid: user.uid,
         email: user.email,
+        name: 'Linda Agustina.A.Md',
+        jabatan: 'ARSIPARIS TERAMPIL',
+        role: 'admin'
       }));
 
       // Redirect ke halaman utama/dashboard setelah berhasil login
-      navigate('/');
+      navigate('/', { replace: true });
     } catch (err) {
-      console.error(err);
+      console.error('Gagal login:', err);
       // Tangani pesan error Firebase yang umum
       switch (err.code) {
         case 'auth/invalid-email':
@@ -49,7 +52,7 @@ const Login = () => {
           setError('Terlalu banyak percobaan gagal. Silakan coba lagi nanti.');
           break;
         default:
-          setError('Gagal masuk ke sistem. Periksa koneksi internet Anda.');
+          setError('Gagal masuk ke sistem. Pastikan akun sudah terdaftar di Firebase Auth.');
           break;
       }
     } finally {
@@ -59,7 +62,6 @@ const Login = () => {
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 sm:p-6 overflow-y-auto transition-colors duration-300">
-      {/* Container Utama dengan my-auto agar selalu di tengah secara vertikal dan horizontal */}
       <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-xl dark:shadow-slate-950/50 border border-gray-100 dark:border-slate-800 p-6 sm:p-8 overflow-hidden relative transition-colors duration-300 my-auto">
         
         {/* Dekorasi Background */}
