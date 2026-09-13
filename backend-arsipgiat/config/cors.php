@@ -12,8 +12,12 @@ return [
 
     'allowed_methods' => ['*'],
 
-    // Tambahkan domain production Anda di sini bersama localhost
-    'allowed_origins' => ['http://localhost:5173', 'https://arsipgiatrancaekek.com'],
+    // Tambahkan domain Vercel dan domain cPanel Anda di sini
+    'allowed_origins' => [
+        'http://localhost:5173', 
+        'https://arsipgiatrancaekek.com',
+        'https://arsip-giat.vercel.app'
+    ],
 
     'allowed_origins_patterns' => [],
 
