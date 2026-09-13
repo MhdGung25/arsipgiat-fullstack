@@ -8,13 +8,17 @@ import SuratMasuk from './pages/SuratMasuk';
 import Disposisi from './pages/Disposisi';
 import Notifikasi from './components/Notifikasi';
 
-// Helper mengecek status autentikasi berdasarkan data user Firebase di localStorage
+// Helper memeriksa autentikasi secara aman
 const isAuthenticated = () => {
-  const user = localStorage.getItem('user');
-  return user !== null && user !== undefined;
+  try {
+    const user = localStorage.getItem('user');
+    return user !== null && user !== undefined && user !== "undefined";
+  } catch (e) {
+    return false;
+  }
 };
 
-// 1. Guard Rute Terautentikasi (Hanya untuk pengguna yang sudah login)
+// 1. Guard Rute Terproteksi
 const ProtectedRoute = () => {
   if (!isAuthenticated()) {
     return <Navigate to="/login" replace />;
@@ -22,7 +26,7 @@ const ProtectedRoute = () => {
   return <Outlet />;
 };
 
-// 2. Guard Rute Publik (Mencegah pengguna yang sudah login masuk ke halaman /login)
+// 2. Guard Rute Publik
 const PublicRoute = () => {
   if (isAuthenticated()) {
     return <Navigate to="/" replace />;
@@ -37,20 +41,20 @@ function App() {
         {/* Rute Publik */}
         <Route element={<PublicRoute />}>
           <Route path="/login" element={<Login />} />
-        </Route>
+        </Route> {/* Perhatikan penutup tag */}
 
-        {/* Rute Terproteksi (Admin / Dashboard) */}
+        {/* Rute Terproteksi */}
         <Route element={<ProtectedRoute />}>
           <Route element={<DefaultLayout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="agenda" element={<Agenda />} />
-            <Route path="surat-masuk" element={<SuratMasuk />} />
-            <Route path="disposisi" element={<Disposisi />} />
-            <Route path="notifikasi" element={<Notifikasi />} />
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/agenda" element={<Agenda />} />
+            <Route path="/surat-masuk" element={<SuratMasuk />} />
+            <Route path="/disposisi" element={<Disposisi />} />
+            <Route path="/notifikasi" element={<Notifikasi />} />
           </Route>
         </Route>
 
-        {/* Fallback Route jika URL tidak ditemukan */}
+        {/* Fallback Route */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
