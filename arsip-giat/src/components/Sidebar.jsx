@@ -38,9 +38,9 @@ const Sidebar = ({ isOpen, onClose, user, onLogout }) => {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
-  // Mengambil data murni dari state akun yang aktif
-  const displayName = user?.nama || user?.name || "Pengguna";
-  const displaySub = user?.jabatan || user?.role || "Staff";
+// Ubah dari 'Pengguna' / 'Staff' menjadi namamu dan jabatanmu
+ const displayName = user?.nama || user?.name || 'Linda Agustina.A.Md';
+ const displaySub = user?.jabatan || user?.role || 'ARSIPARIS TERAMPIL';
   const avatarUrl = user?.avatar;
 
   return (
