@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import { 
   Plus, 
   Search, 
@@ -11,9 +10,17 @@ import {
   X, 
   ChevronLeft, 
   ChevronRight, 
-  ExternalLink,
-  Download
+  ExternalLink 
 } from 'lucide-react';
+import { 
+  collection, 
+  getDocs, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc 
+} from 'firebase/firestore';
+import { db } from '../firebase';
 
 const SuratMasuk = () => {
   const [suratList, setSuratList] = useState([]);
@@ -26,7 +33,7 @@ const SuratMasuk = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // Form State
+  // Form State (Menggunakan file_url berupa teks link alih-alih file upload)
   const [formData, setFormData] = useState({
     nomor_surat: '',
     pengirim: '',
@@ -34,21 +41,18 @@ const SuratMasuk = () => {
     tanggal_surat: '',
     tanggal_diterima: '',
     keterangan: '',
-    file_surat: null,
+    file_url: '',
   });
 
-  const [existingFileName, setExistingFileName] = useState('');
   const [formErrors, setFormErrors] = useState({});
 
-  // Base URL Storage
-  const STORAGE_URL = 'http://127.0.0.1:8000/storage';
-
-  // 1. Fetch Data Surat Masuk
+  // 1. Fetch Data Surat Masuk dari Firestore
   const fetchSuratMasuk = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://127.0.0.1:8000/api/surat-masuk');
-      setSuratList(response.data.data || []);
+      const querySnapshot = await getDocs(collection(db, 'surat_masuk'));
+      const suratData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setSuratList(suratData);
     } catch (error) {
       console.error('Gagal mengambil data surat masuk:', error);
     } finally {
@@ -68,9 +72,8 @@ const SuratMasuk = () => {
       tanggal_surat: '',
       tanggal_diterima: '',
       keterangan: '',
-      file_surat: null,
+      file_url: '',
     });
-    setExistingFileName('');
     setFormErrors({});
     setEditId(null);
   };
@@ -85,9 +88,8 @@ const SuratMasuk = () => {
         tanggal_surat: item.tanggal_surat || '',
         tanggal_diterima: item.tanggal_diterima || '',
         keterangan: item.keterangan || '',
-        file_surat: null,
+        file_url: item.file_url || '',
       });
-      setExistingFileName(item.file_surat || '');
     } else {
       resetForm();
     }
@@ -95,60 +97,50 @@ const SuratMasuk = () => {
   };
 
   const handleChange = (e) => {
-    const { name, value, files } = e.target;
-    if (name === 'file_surat') {
-      setFormData((prev) => ({ ...prev, file_surat: files[0] }));
-    } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
-    }
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // 2. Submit Form (Create & Update)
+  // 2. Submit Form (Create & Update ke Firestore)
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormErrors({});
 
-    // Gunakan FormData untuk upload file
-    const data = new FormData();
-    data.append('nomor_surat', formData.nomor_surat);
-    data.append('pengirim', formData.pengirim);
-    data.append('perihal', formData.perihal);
-    data.append('tanggal_surat', formData.tanggal_surat);
-    data.append('tanggal_diterima', formData.tanggal_diterima);
-    if (formData.keterangan) data.append('keterangan', formData.keterangan);
-    if (formData.file_surat) data.append('file_surat', formData.file_surat);
-
     try {
+      const payload = {
+        nomor_surat: formData.nomor_surat,
+        pengirim: formData.pengirim,
+        perihal: formData.perihal,
+        tanggal_surat: formData.tanggal_surat,
+        tanggal_diterima: formData.tanggal_diterima,
+        keterangan: formData.keterangan || '',
+        file_url: formData.file_url || '',
+      };
+
       if (editId) {
-        // Trik Laravel Multipart PUT
-        data.append('_method', 'PUT');
-        await axios.post(`http://127.0.0.1:8000/api/surat-masuk/${editId}`, data, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        const docRef = doc(db, 'surat_masuk', editId);
+        await updateDoc(docRef, payload);
       } else {
-        await axios.post('http://127.0.0.1:8000/api/surat-masuk', data, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        await addDoc(collection(db, 'surat_masuk'), payload);
       }
+
       setIsModalOpen(false);
       resetForm();
       fetchSuratMasuk();
     } catch (error) {
-      if (error.response && error.response.status === 422) {
-        setFormErrors(error.response.data.errors);
-      } else {
-        alert('Terjadi kesalahan pada server.');
-      }
+      console.error('Gagal menyimpan data:', error);
+      alert('Terjadi kesalahan saat menyimpan data ke Firestore.');
     }
   };
 
-  // 3. Delete Data
+  // 3. Delete Data dari Firestore
   const handleDelete = async (id) => {
     if (window.confirm('Apakah Anda yakin ingin menghapus surat masuk ini?')) {
       try {
-        await axios.delete(`http://127.0.0.1:8000/api/surat-masuk/${id}`);
+        await deleteDoc(doc(db, 'surat_masuk', id));
         fetchSuratMasuk();
       } catch (error) {
+        console.error('Gagal menghapus data:', error);
         alert('Gagal menghapus data surat masuk.');
       }
     }
@@ -157,9 +149,9 @@ const SuratMasuk = () => {
   // Filter Data
   const filteredSurat = suratList.filter(
     (item) =>
-      item.nomor_surat.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.pengirim.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.perihal.toLowerCase().includes(searchTerm.toLowerCase())
+      (item.nomor_surat || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.pengirim || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.perihal || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Pagination Logic
@@ -175,7 +167,7 @@ const SuratMasuk = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Kelola Surat Masuk</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Arsip dan tata kelola surat masuk instansi secara rapi dan terstruktur.
+            Arsip dan tata kelola surat masuk instansi secara rapi dan terstruktur (Gratis Mode).
           </p>
         </div>
         <button
@@ -226,7 +218,7 @@ const SuratMasuk = () => {
                     <th className="py-4 px-6">NOMOR & PERIHAL SURAT</th>
                     <th className="py-4 px-6">PENGIRIM</th>
                     <th className="py-4 px-6">TANGGAL SURAT / TERIMA</th>
-                    <th className="py-4 px-6">FILE LAMPIRAN</th>
+                    <th className="py-4 px-6">LINK LAMPIRAN</th>
                     <th className="py-4 px-6 text-center">AKSI</th>
                   </tr>
                 </thead>
@@ -246,32 +238,32 @@ const SuratMasuk = () => {
                         <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Diterima: {item.tanggal_diterima}</div>
                       </td>
                       <td className="py-4 px-6 text-xs">
-                        {item.file_surat ? (
+                        {item.file_url ? (
                           <a
-                            href={`${STORAGE_URL}/${item.file_surat}`}
+                            href={item.file_url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 px-3 py-1.5 rounded-lg font-semibold border border-emerald-200 dark:border-emerald-800/60 transition"
                           >
                             <Paperclip size={13} />
-                            <span>Lihat File</span>
+                            <span>Buka Link</span>
                             <ExternalLink size={11} className="ml-0.5" />
                           </a>
                         ) : (
-                          <span className="text-slate-400 dark:text-slate-500 italic">Tidak Ada File</span>
+                          <span className="text-slate-400 dark:text-slate-500 italic">Tidak Ada Link</span>
                         )}
                       </td>
                       <td className="py-4 px-6">
                         <div className="flex items-center justify-center gap-1">
                           <button
                             onClick={() => handleOpenModal(item)}
-                            className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition"
+                            className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition cursor-pointer"
                           >
                             <Edit3 size={16} />
                           </button>
                           <button
                             onClick={() => handleDelete(item.id)}
-                            className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 transition"
+                            className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 transition cursor-pointer"
                           >
                             <Trash2 size={16} />
                           </button>
@@ -306,7 +298,7 @@ const SuratMasuk = () => {
                 <button
                   onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
-                  className="p-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 transition text-slate-600 dark:text-slate-300"
+                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 transition text-slate-600 dark:text-slate-300 cursor-pointer"
                 >
                   <ChevronLeft size={16} />
                 </button>
@@ -314,7 +306,7 @@ const SuratMasuk = () => {
                 <button
                   onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
-                  className="p-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 transition text-slate-600 dark:text-slate-300"
+                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 transition text-slate-600 dark:text-slate-300 cursor-pointer"
                 >
                   <ChevronRight size={16} />
                 </button>
@@ -324,7 +316,7 @@ const SuratMasuk = () => {
         )}
       </div>
 
-      {/* Modal Form dengan Perbaikan Posisi Tengah, Jarak Atas-Bawah & Scroll */}
+      {/* Modal Form */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 dark:bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6">
           <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl transition-colors my-auto">
@@ -334,7 +326,7 @@ const SuratMasuk = () => {
               </h2>
               <button 
                 onClick={() => setIsModalOpen(false)} 
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
               >
                 <X size={18} />
               </button>
@@ -352,7 +344,6 @@ const SuratMasuk = () => {
                   className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500"
                   required
                 />
-                {formErrors.nomor_surat && <p className="text-red-500 text-xs mt-1">{formErrors.nomor_surat[0]}</p>}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -367,7 +358,6 @@ const SuratMasuk = () => {
                     className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500"
                     required
                   />
-                  {formErrors.pengirim && <p className="text-red-500 text-xs mt-1">{formErrors.pengirim[0]}</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Perihal</label>
@@ -380,7 +370,6 @@ const SuratMasuk = () => {
                     className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500"
                     required
                   />
-                  {formErrors.perihal && <p className="text-red-500 text-xs mt-1">{formErrors.perihal[0]}</p>}
                 </div>
               </div>
 
@@ -395,7 +384,6 @@ const SuratMasuk = () => {
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white text-sm focus:outline-none focus:border-emerald-500"
                     required
                   />
-                  {formErrors.tanggal_surat && <p className="text-red-500 text-xs mt-1">{formErrors.tanggal_surat[0]}</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Tanggal Diterima</label>
@@ -407,27 +395,21 @@ const SuratMasuk = () => {
                     className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white text-sm focus:outline-none focus:border-emerald-500"
                     required
                   />
-                  {formErrors.tanggal_diterima && <p className="text-red-500 text-xs mt-1">{formErrors.tanggal_diterima[0]}</p>}
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                  Upload File Surat (PDF, JPG, PNG - Max 5MB)
+                  Link / URL File Surat (Google Drive / Cloud Gratis)
                 </label>
                 <input
-                  type="file"
-                  name="file_surat"
-                  accept=".pdf,.jpg,.jpeg,.png"
+                  type="url"
+                  name="file_url"
+                  value={formData.file_url}
                   onChange={handleChange}
-                  className="w-full text-xs text-slate-500 dark:text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 dark:file:bg-emerald-950 dark:file:text-emerald-400 file:text-emerald-700 hover:file:bg-emerald-100 dark:hover:file:bg-emerald-900 border border-slate-200 dark:border-slate-700 rounded-xl cursor-pointer bg-white dark:bg-slate-800"
+                  placeholder="https://drive.google.com/..."
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500"
                 />
-                {existingFileName && !formData.file_surat && (
-                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                    File saat ini: <span className="font-semibold text-slate-600 dark:text-slate-300">{existingFileName.split('/').pop()}</span>
-                  </p>
-                )}
-                {formErrors.file_surat && <p className="text-red-500 text-xs mt-1">{formErrors.file_surat[0]}</p>}
               </div>
 
               <div>
@@ -446,13 +428,13 @@ const SuratMasuk = () => {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-semibold transition"
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-semibold transition cursor-pointer"
                 >
                   {editId ? 'Simpan Perubahan' : 'Tambah Surat'}
                 </button>

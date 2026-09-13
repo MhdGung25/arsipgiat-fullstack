@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, LogIn, Eye, EyeOff, Loader2 } from 'lucide-react';
-import axios from 'axios';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../firebase'; // Sesuaikan path jika file firebase.js ada di tempat lain
 import logo from "../assets/logo-rancaekek.png";
 
 const Login = () => {
@@ -20,27 +21,36 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post('http://127.0.0.1:8000/api/login', {
-        email: email,
-        password: password,
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        }
-      });
+      // Proses autentikasi menggunakan Firebase Auth
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
 
-      const { access_token, user } = response.data;
+      // Simpan sesi user ke localStorage (opsional, Firebase juga otomatis menyimpan state di IndexedDB)
+      localStorage.setItem('user', JSON.stringify({
+        uid: user.uid,
+        email: user.email,
+      }));
 
-      localStorage.setItem('token', access_token);
-      localStorage.setItem('user', JSON.stringify(user));
-
+      // Redirect ke halaman utama/dashboard setelah berhasil login
       navigate('/');
     } catch (err) {
-      if (err.response) {
-        setError(err.response.data.message || 'Email atau password salah.');
-      } else {
-        setError('Gagal terhubung ke server. Pastikan backend Laravel aktif.');
+      console.error(err);
+      // Tangani pesan error Firebase yang umum
+      switch (err.code) {
+        case 'auth/invalid-email':
+          setError('Format email tidak valid.');
+          break;
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+        case 'auth/invalid-credential':
+          setError('Email atau password salah.');
+          break;
+        case 'auth/too-many-requests':
+          setError('Terlalu banyak percobaan gagal. Silakan coba lagi nanti.');
+          break;
+        default:
+          setError('Gagal masuk ke sistem. Periksa koneksi internet Anda.');
+          break;
       }
     } finally {
       setLoading(false);

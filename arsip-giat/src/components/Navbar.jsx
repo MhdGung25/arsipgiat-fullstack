@@ -1,7 +1,16 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { Menu, Moon, Sun, Bell, CheckCircle2, Info, X } from "lucide-react";
-import axios from "axios";
+import { Menu, Moon, Sun, Bell, Info } from "lucide-react";
+import { 
+  collection, 
+  getDocs, 
+  updateDoc, 
+  doc, 
+  query, 
+  orderBy, 
+  onSnapshot 
+} from "firebase/firestore";
+import { db } from "../firebase"; // Sesuaikan path file firebase.js kamu
 
 const Navbar = ({ onMenuClick, user }) => {
   const location = useLocation();
@@ -29,27 +38,25 @@ const Navbar = ({ onMenuClick, user }) => {
     }
   }, [darkMode]);
 
-  // 3. Fetch Data Notifikasi dari Backend
-  const fetchNotifications = async () => {
-    try {
-      const response = await axios.get("http://127.0.0.1:8000/api/notifikasi");
-      // Asumsi respons backend berupa array data atau { data: [...] }
-      const dataNotif = response.data.data || response.data || [];
+  // 3. Fetch Data Notifikasi Real-time dari Firebase Firestore
+  useEffect(() => {
+    const q = query(collection(db, "notifikasi"), orderBy("created_at", "desc"));
+    
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const dataNotif = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
       setNotifications(dataNotif);
       
-      // Hitung jumlah yang belum dibaca (misalnya berdasarkan field 'is_read' atau 'read_at')
+      // Hitung jumlah yang belum dibaca
       const unread = dataNotif.filter((item) => !item.is_read && !item.read_at).length;
       setUnreadCount(unread);
-    } catch (error) {
-      console.error("Gagal mengambil data notifikasi:", error);
-    }
-  };
+    }, (error) => {
+      console.error("Gagal mengambil data notifikasi dari Firebase:", error);
+    });
 
-  useEffect(() => {
-    fetchNotifications();
-    // Opsional: Polling setiap 30 detik untuk update real-time
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
+    return () => unsubscribe();
   }, []);
 
   // Tutup dropdown jika klik di luar
@@ -67,17 +74,28 @@ const Navbar = ({ onMenuClick, user }) => {
     setDarkMode((prev) => !prev);
   };
 
-  // Fungsi menandai semua / satu notifikasi telah dibaca ke backend
+  // Fungsi menandai semua / satu notifikasi telah dibaca di Firebase
   const handleMarkAsRead = async (id = null) => {
     try {
       if (id) {
-        await axios.put(`http://127.0.0.1:8000/api/notifikasi/${id}/read`);
+        const notifRef = doc(db, "notifikasi", id);
+        await updateDoc(notifRef, {
+          is_read: true,
+          read_at: new Date().toISOString()
+        });
       } else {
-        await axios.put("http://127.0.0.1:8000/api/notifikasi/read-all");
+        const querySnapshot = await getDocs(collection(db, "notifikasi"));
+        const updatePromises = querySnapshot.docs.map(async (document) => {
+          const notifRef = doc(db, "notifikasi", document.id);
+          return updateDoc(notifRef, {
+            is_read: true,
+            read_at: new Date().toISOString()
+          });
+        });
+        await Promise.all(updatePromises);
       }
-      fetchNotifications();
     } catch (error) {
-      console.error("Gagal memperbarui status notifikasi:", error);
+      console.error("Gagal memperbarui status notifikasi di Firebase:", error);
     }
   };
 
@@ -94,6 +112,8 @@ const Navbar = ({ onMenuClick, user }) => {
         return "Disposisi Surat";
       case "/pegawai":
         return "Data Pegawai";
+      case "/notifikasi":
+        return "Pusat Notifikasi";
       case "/profil":
         return "Pengaturan Profil";
       default:
@@ -110,8 +130,8 @@ const Navbar = ({ onMenuClick, user }) => {
   };
 
   const title = getPageTitle(location.pathname);
-  const userName = user?.nama || user?.name || "ADMIN VEKTOR";
-  const userEmail = user?.email || "vektordigital.official@gmail.com";
+  const userName = user?.nama || user?.name || "ADMIN RANCAEKEK";
+  const userEmail = user?.email || "admin@rancaekek.com";
   const initials = getInitials(userName);
 
   return (
@@ -132,7 +152,7 @@ const Navbar = ({ onMenuClick, user }) => {
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 hidden sm:block">
             Beranda <span className="mx-1">&gt;</span>{" "}
-            <span className="text-indigo-600 dark:text-indigo-400 font-medium">
+            <span className="text-emerald-600 dark:text-emerald-400 font-medium">
               {title}
             </span>
           </p>
@@ -144,7 +164,7 @@ const Navbar = ({ onMenuClick, user }) => {
         {/* Tombol Toggle Mode Terang/Gelap */}
         <button
           onClick={toggleDarkMode}
-          className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/50 flex items-center justify-center text-slate-600 dark:text-amber-300 hover:bg-slate-200 dark:hover:bg-slate-700/80 transition-all"
+          className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/50 flex items-center justify-center text-slate-600 dark:text-amber-300 hover:bg-slate-200 dark:hover:bg-slate-700/80 transition-all cursor-pointer"
           title={darkMode ? "Ubah ke Mode Terang" : "Ubah ke Mode Gelap"}
           aria-label="Toggle Dark Mode"
         >
@@ -158,8 +178,7 @@ const Navbar = ({ onMenuClick, user }) => {
         {/* Tombol & Dropdown Notifikasi */}
         <div className="relative" ref={dropdownRef}>
           <button
-            onClick={() => setIsModalOpen ? null : setIsDropdownOpen(!isDropdownOpen)}
-            onClickCapture={() => setIsDropdownOpen((prev) => !prev)}
+            onClick={() => setIsDropdownOpen((prev) => !prev)}
             className="relative w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/50 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700/80 transition-all cursor-pointer"
             aria-label="Notifikasi"
           >
@@ -184,7 +203,7 @@ const Navbar = ({ onMenuClick, user }) => {
                 {unreadCount > 0 && (
                   <button
                     onClick={() => handleMarkAsRead()}
-                    className="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+                    className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
                   >
                     Tandai semua dibaca
                   </button>
@@ -202,10 +221,10 @@ const Navbar = ({ onMenuClick, user }) => {
                       key={item.id}
                       onClick={() => handleMarkAsRead(item.id)}
                       className={`p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition cursor-pointer flex gap-3 items-start ${
-                        !item.is_read && !item.read_at ? "bg-indigo-50/40 dark:bg-indigo-950/20" : ""
+                        !item.is_read && !item.read_at ? "bg-emerald-50/40 dark:bg-emerald-950/20" : ""
                       }`}
                     >
-                      <div className="p-2 rounded-xl bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5">
+                      <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5">
                         <Info size={16} />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -220,7 +239,7 @@ const Navbar = ({ onMenuClick, user }) => {
                         </span>
                       </div>
                       {!item.is_read && !item.read_at && (
-                        <span className="w-2 h-2 rounded-full bg-indigo-600 mt-1.5 shrink-0"></span>
+                        <span className="w-2 h-2 rounded-full bg-emerald-600 mt-1.5 shrink-0"></span>
                       )}
                     </div>
                   ))
@@ -235,7 +254,7 @@ const Navbar = ({ onMenuClick, user }) => {
 
         {/* Profil Pengguna */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-md shrink-0">
             {initials}
           </div>
 

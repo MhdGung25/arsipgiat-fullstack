@@ -1,44 +1,52 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Bell, CheckCheck, Info, Trash2, Calendar } from 'lucide-react';
+import { 
+  Bell, 
+  CheckCheck, 
+  Info, 
+  Calendar 
+} from 'lucide-react';
+import { 
+  collection, 
+  getDocs, 
+  updateDoc, 
+  doc, 
+  query, 
+  orderBy, 
+  onSnapshot 
+} from 'firebase/firestore';
+import { db } from '../firebase'; // Sesuaikan path file firebase.js kamu
 
 const Notifikasi = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Ambil token dari localStorage atau state auth Anda
-  const token = localStorage.getItem('token'); // Sesuaikan dengan cara penyimpanan token Anda
-
-  const fetchNotifications = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get('http://127.0.0.1:8000/api/notifikasi', {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      setNotifications(response.data.data || []);
-    } catch (error) {
-      console.error('Gagal memuat notifikasi:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Menggunakan Firebase real-time listener (onSnapshot) untuk update otomatis
   useEffect(() => {
-    fetchNotifications();
-    // Real-time polling setiap 10 detik agar halaman otomatis memperbarui data
-    const interval = setInterval(fetchNotifications, 10000);
-    return () => clearInterval(interval);
+    const q = query(collection(db, 'notifikasi'), orderBy('created_at', 'desc'));
+    
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const notifData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setNotifications(notifData);
+      setLoading(false);
+    }, (error) => {
+      console.error('Gagal memuat notifikasi dari Firebase:', error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   // Tandai satu notifikasi terbaca
   const handleMarkAsRead = async (id) => {
     try {
-      await axios.put(`http://127.0.0.1:8000/api/notifikasi/${id}/read`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
+      const notifRef = doc(db, 'notifikasi', id);
+      await updateDoc(notifRef, {
+        is_read: true,
+        read_at: new Date().toISOString()
       });
-      fetchNotifications();
     } catch (error) {
       console.error('Gagal memperbarui notifikasi:', error);
     }
@@ -47,10 +55,15 @@ const Notifikasi = () => {
   // Tandai semua terbaca
   const handleMarkAllAsRead = async () => {
     try {
-      await axios.put('http://127.0.0.1:8000/api/notifikasi/read-all', {}, {
-        headers: { Authorization: `Bearer ${token}` }
+      const querySnapshot = await getDocs(collection(db, 'notifikasi'));
+      const updatePromises = querySnapshot.docs.map(async (document) => {
+        const notifRef = doc(db, 'notifikasi', document.id);
+        return updateDoc(notifRef, {
+          is_read: true,
+          read_at: new Date().toISOString()
+        });
       });
-      fetchNotifications();
+      await Promise.all(updatePromises);
     } catch (error) {
       console.error('Gagal memperbarui semua notifikasi:', error);
     }
@@ -79,7 +92,7 @@ const Notifikasi = () => {
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800/80 shadow-xs overflow-hidden transition-colors">
         <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
           <h2 className="text-base font-bold text-slate-800 dark:text-white">Semua Pemberitahuan</h2>
-          <span className="text-xs text-slate-400 dark:text-slate-500">Pembaruan otomatis aktif</span>
+          <span className="text-xs text-slate-400 dark:text-slate-500">Pembaruan otomatis aktif (Firebase)</span>
         </div>
 
         {loading && notifications.length === 0 ? (

@@ -1,5 +1,7 @@
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Calendar, Mail, FileCheck, Bell, LogOut, X } from "lucide-react";
+import { LayoutDashboard, Calendar, Mail, FileCheck, LogOut, X } from "lucide-react";
+import { signOut } from "firebase/auth";
+import { auth } from "../firebase"; // Sesuaikan path file firebase.js kamu
 import logoRancaekek from "../assets/logo-rancaekek.png";
 
 const Sidebar = ({ isOpen, onClose, user, onLogout }) => {
@@ -10,20 +12,27 @@ const Sidebar = ({ isOpen, onClose, user, onLogout }) => {
     { path: "/disposisi", label: "Disposisi", icon: FileCheck },
   ];
 
-  // Handler Logout diperbarui agar pasti berhasil me-reset aplikasi
-  const handleLogout = () => {
-    // 1. Hapus semua data login dari LocalStorage & SessionStorage
+  // Handler Logout dengan Firebase Auth & LocalStorage Reset
+  const handleLogout = async () => {
+    try {
+      // 1. Logout dari Firebase Authentication
+      await signOut(auth);
+    } catch (error) {
+      console.error("Gagal melakukan sign out dari Firebase:", error);
+    }
+
+    // 2. Hapus semua data dari LocalStorage & SessionStorage
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.clear();
     sessionStorage.clear();
 
-    // 2. Jalankan callback logout bawaan jika ada
+    // 3. Jalankan callback logout bawaan jika ada
     if (typeof onLogout === "function") {
       onLogout();
     }
 
-    // 3. Paksa redirect ke /login sekaligus reset state aplikasi
+    // 4. Paksa redirect ke /login sekaligus reset state aplikasi
     window.location.href = "/login";
   };
 
@@ -78,7 +87,7 @@ const Sidebar = ({ isOpen, onClose, user, onLogout }) => {
             
             <button
               onClick={onClose}
-              className="md:hidden p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+              className="md:hidden p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
               aria-label="Close menu"
             >
               <X size={18} />
@@ -120,7 +129,7 @@ const Sidebar = ({ isOpen, onClose, user, onLogout }) => {
                 className="w-10 h-10 rounded-full object-cover shrink-0 shadow-md border border-slate-700"
               />
             ) : (
-              <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-md uppercase">
+              <div className="w-10 h-10 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-md uppercase">
                 {getInitials(displayName)}
               </div>
             )}
