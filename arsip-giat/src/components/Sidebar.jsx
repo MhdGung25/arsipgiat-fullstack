@@ -32,19 +32,19 @@ const Sidebar = ({ isOpen, onClose, user, onLogout }) => {
   };
 
   const getInitials = (name) => {
-    if (!name) return "US";
+    if (!name) return "LA";
     const parts = name.trim().split(" ").filter(Boolean);
     if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
-  // Deklarasi variabel dengan aman (Menggunakan data asli akun yang login)
   const displayName = user?.nama || user?.name || "Linda Agustina.A.Md";
   const displaySub = user?.jabatan || user?.role || "ARSIPARIS TERAMPIL";
   const avatarUrl = user?.avatar;
 
   return (
     <>
+      {/* Overlay Gelap Mode Mobile */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden transition-opacity"
@@ -52,13 +52,16 @@ const Sidebar = ({ isOpen, onClose, user, onLogout }) => {
         />
       )}
 
+      {/* Container Sidebar Utama dengan tinggi layar penuh yang aman */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#111827] text-slate-300 flex flex-col justify-between transition-transform duration-300 ease-in-out border-r border-slate-800/50 md:static md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#111827] text-slate-300 flex flex-col justify-between h-[100dvh] transition-transform duration-300 ease-in-out border-r border-slate-800/50 md:static md:translate-x-0 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
+        {/* Bagian Atas: Header Logo & Menu Navigasi (Bisa di-scroll jika menu banyak) */}
         <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
-          <div className="p-4 border-b border-slate-800/60 flex items-center justify-between shrink-0">
+          {/* Header */}
+          <div className="p-4 border-b border-slate-800/60 flex items-center justify-between shrink-0 bg-[#111827] sticky top-0 z-10">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-white rounded-xl p-1.5 flex items-center justify-center shadow-md shrink-0">
                 <img
@@ -86,7 +89,8 @@ const Sidebar = ({ isOpen, onClose, user, onLogout }) => {
             </button>
           </div>
 
-          <nav className="p-4 space-y-2 flex-1">
+          {/* Menu Navigasi */}
+          <nav className="p-4 space-y-2">
             {menuItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -110,6 +114,7 @@ const Sidebar = ({ isOpen, onClose, user, onLogout }) => {
           </nav>
         </div>
 
+        {/* Bagian Bawah (Footer): Profil User & Tombol Logout (Terkunci rapi tidak akan terpotong) */}
         <div className="p-4 border-t border-slate-800/60 flex items-center justify-between shrink-0 bg-[#111827]">
           <div className="flex items-center gap-3 overflow-hidden">
             {avatarUrl ? (
