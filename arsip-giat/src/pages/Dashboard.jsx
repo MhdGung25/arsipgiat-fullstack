@@ -6,10 +6,9 @@ import {
   Users, 
   Clock, 
   CheckCircle2, 
-  AlertCircle, 
-  ArrowRight 
+  AlertCircle 
 } from 'lucide-react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 
 const Dashboard = () => {
@@ -41,54 +40,78 @@ const Dashboard = () => {
       }
     }
 
-    const fetchDashboardData = async () => {
-      try {
-        const [suratSnapshot, disposisiSnapshot, agendaSnapshot, pegawaiSnapshot] = await Promise.all([
-          getDocs(collection(db, 'surat_masuk')).catch(() => ({ docs: [] })),
-          getDocs(collection(db, 'disposisi')).catch(() => ({ docs: [] })),
-          getDocs(collection(db, 'agenda')).catch(() => ({ docs: [] })),
-          getDocs(collection(db, 'pegawai')).catch(() => ({ docs: [] })),
-        ]);
+    // Menggunakan onSnapshot agar data otomatis ter-update secara real-time
+    let suratList = [];
+    let disposisiList = [];
+    let agendaList = [];
+    let pegawaiList = [];
 
-        const suratList = suratSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        const disposisiList = disposisiSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        const agendaList = agendaSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        const pegawaiList = pegawaiSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const updateDashboardState = () => {
+      let pendingCount = 0;
+      let prosesCount = 0;
+      let selesaiCount = 0;
 
-        let pendingCount = 0;
-        let prosesCount = 0;
-        let selesaiCount = 0;
+      disposisiList.forEach(item => {
+        const statusVal = (item.status || '').toLowerCase();
+        if (statusVal.includes('pending')) pendingCount++;
+        else if (statusVal.includes('proses')) prosesCount++;
+        else if (statusVal.includes('selesai')) selesaiCount++;
+      });
 
-        disposisiList.forEach(item => {
-          const statusVal = (item.status || '').toLowerCase();
-          if (statusVal.includes('pending')) pendingCount++;
-          else if (statusVal.includes('proses')) prosesCount++;
-          else if (statusVal.includes('selesai')) selesaiCount++;
-        });
-
-        setData({
-          counters: {
-            total_surat_masuk: suratList.length,
-            total_disposisi: disposisiList.length,
-            total_agenda: agendaList.length,
-            total_pegawai: pegawaiList.length,
-          },
-          disposisi_status: {
-            pending: pendingCount,
-            proses: prosesCount,
-            selesai: selesaiCount,
-          },
-          recent_surat_masuk: suratList.slice(0, 5),
-          recent_disposisi: disposisiList.slice(0, 5),
-        });
-      } catch (error) {
-        console.error('Gagal mengambil data dashboard:', error);
-      } finally {
-        setLoading(false);
-      }
+      setData({
+        counters: {
+          total_surat_masuk: suratList.length,
+          total_disposisi: disposisiList.length,
+          total_agenda: agendaList.length,
+          total_pegawai: pegawaiList.length,
+        },
+        disposisi_status: {
+          pending: pendingCount,
+          proses: prosesCount,
+          selesai: selesaiCount,
+        },
+        recent_surat_masuk: suratList.slice(0, 5),
+        recent_disposisi: disposisiList.slice(0, 5),
+      });
+      setLoading(false);
     };
 
-    fetchDashboardData();
+    // Pasang listener real-time untuk masing-masing koleksi Firestore
+    const unsubSurat = onSnapshot(collection(db, 'surat_masuk'), (snapshot) => {
+      suratList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      updateDashboardState();
+    }, (error) => {
+      console.error("Error listener surat_masuk:", error);
+    });
+
+    const unsubDisposisi = onSnapshot(collection(db, 'disposisi'), (snapshot) => {
+      disposisiList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      updateDashboardState();
+    }, (error) => {
+      console.error("Error listener disposisi:", error);
+    });
+
+    const unsubAgenda = onSnapshot(collection(db, 'agenda'), (snapshot) => {
+      agendaList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      updateDashboardState();
+    }, (error) => {
+      console.error("Error listener agenda:", error);
+    });
+
+    const unsubPegawai = onSnapshot(collection(db, 'pegawai'), (snapshot) => {
+      pegawaiList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      updateDashboardState();
+    }, (error) => {
+      console.error("Error listener pegawai:", error);
+    });
+
+    // Cleanup listener saat komponen di-unmount
+    return () => {
+      unsubSurat();
+      unsubDisposisi();
+      unsubAgenda();
+      unsubPegawai();
+    };
   }, []);
 
   if (loading) {

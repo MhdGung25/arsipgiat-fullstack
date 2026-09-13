@@ -10,7 +10,8 @@ import {
   X, 
   ChevronLeft, 
   ChevronRight, 
-  ExternalLink 
+  ExternalLink,
+  Upload
 } from 'lucide-react';
 import { 
   collection, 
@@ -20,11 +21,13 @@ import {
   deleteDoc, 
   doc 
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../firebase';
 
 const SuratMasuk = () => {
   const [suratList, setSuratList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -33,7 +36,7 @@ const SuratMasuk = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // Form State (Menggunakan file_url berupa teks link alih-alih file upload)
+  // Form State
   const [formData, setFormData] = useState({
     nomor_surat: '',
     pengirim: '',
@@ -44,7 +47,7 @@ const SuratMasuk = () => {
     file_url: '',
   });
 
-  const [formErrors, setFormErrors] = useState({});
+  const [selectedFile, setSelectedFile] = useState(null);
 
   // 1. Fetch Data Surat Masuk dari Firestore
   const fetchSuratMasuk = async () => {
@@ -74,7 +77,7 @@ const SuratMasuk = () => {
       keterangan: '',
       file_url: '',
     });
-    setFormErrors({});
+    setSelectedFile(null);
     setEditId(null);
   };
 
@@ -90,6 +93,7 @@ const SuratMasuk = () => {
         keterangan: item.keterangan || '',
         file_url: item.file_url || '',
       });
+      setSelectedFile(null);
     } else {
       resetForm();
     }
@@ -101,20 +105,35 @@ const SuratMasuk = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // 2. Submit Form (Create & Update ke Firestore)
+  const handleFileChange = (e) => {
+    if (e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
+
+  // 2. Submit Form (Upload File ke Storage & Simpan ke Firestore)
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setFormErrors({});
 
     try {
+      setUploading(true);
+      let fileUrl = formData.file_url;
+
+      // Jika ada file baru yang dipilih untuk di-upload
+      if (selectedFile) {
+        const fileRef = ref(storage, `surat_masuk/${Date.now()}_${selectedFile.name}`);
+        const snapshot = await uploadBytes(fileRef, selectedFile);
+        fileUrl = await getDownloadURL(snapshot.ref);
+      }
+
       const payload = {
-        nomor_surat: formData.nomor_surat,
-        pengirim: formData.pengirim,
-        perihal: formData.perihal,
-        tanggal_surat: formData.tanggal_surat,
-        tanggal_diterima: formData.tanggal_diterima,
+        nomor_surat: formData.nomor_surat || '',
+        pengirim: formData.pengirim || '',
+        perihal: formData.perihal || '',
+        tanggal_surat: formData.tanggal_surat || '',
+        tanggal_diterima: formData.tanggal_diterima || '',
         keterangan: formData.keterangan || '',
-        file_url: formData.file_url || '',
+        file_url: fileUrl || '',
       };
 
       if (editId) {
@@ -129,7 +148,9 @@ const SuratMasuk = () => {
       fetchSuratMasuk();
     } catch (error) {
       console.error('Gagal menyimpan data:', error);
-      alert('Terjadi kesalahan saat menyimpan data ke Firestore.');
+      alert('Terjadi kesalahan saat mengunggah file atau menyimpan data ke database.');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -167,12 +188,12 @@ const SuratMasuk = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Kelola Surat Masuk</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Arsip dan tata kelola surat masuk instansi secara rapi dan terstruktur (Gratis Mode).
+            Arsip dan tata kelola surat masuk instansi secara rapi dan terstruktur dengan lampiran dokumen.
           </p>
         </div>
         <button
           onClick={() => handleOpenModal()}
-          className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition shadow-md shadow-emerald-900/10 active:scale-95 shrink-0 cursor-pointer"
+          className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition shadow-md shadow-emerald-900/10 active:scale-95 shrink-0 cursor-pointer"
         >
           <Plus size={18} />
           <span>Tambah Surat Masuk</span>
@@ -218,7 +239,7 @@ const SuratMasuk = () => {
                     <th className="py-4 px-6">NOMOR & PERIHAL SURAT</th>
                     <th className="py-4 px-6">PENGIRIM</th>
                     <th className="py-4 px-6">TANGGAL SURAT / TERIMA</th>
-                    <th className="py-4 px-6">LINK LAMPIRAN</th>
+                    <th className="py-4 px-6">LAMPIRAN FILE</th>
                     <th className="py-4 px-6 text-center">AKSI</th>
                   </tr>
                 </thead>
@@ -246,11 +267,11 @@ const SuratMasuk = () => {
                             className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 px-3 py-1.5 rounded-lg font-semibold border border-emerald-200 dark:border-emerald-800/60 transition"
                           >
                             <Paperclip size={13} />
-                            <span>Buka Link</span>
+                            <span>Lihat Berkas</span>
                             <ExternalLink size={11} className="ml-0.5" />
                           </a>
                         ) : (
-                          <span className="text-slate-400 dark:text-slate-500 italic">Tidak Ada Link</span>
+                          <span className="text-slate-400 dark:text-slate-500 italic">Tidak Ada File</span>
                         )}
                       </td>
                       <td className="py-4 px-6">
@@ -400,16 +421,25 @@ const SuratMasuk = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                  Link / URL File Surat (Google Drive / Cloud Gratis)
+                  Upload Berkas (PDF, JPG, PNG)
                 </label>
-                <input
-                  type="url"
-                  name="file_url"
-                  value={formData.file_url}
-                  onChange={handleChange}
-                  placeholder="https://drive.google.com/..."
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500"
-                />
+                <div className="flex items-center gap-2">
+                  <label className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold cursor-pointer transition">
+                    <Upload size={16} />
+                    <span>{selectedFile ? selectedFile.name : (formData.file_url ? 'Ganti File Lampiran' : 'Pilih File Dokumen')}</span>
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+                {formData.file_url && !selectedFile && (
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1">
+                    * Berkas saat ini sudah terlampir. Biarkan kosong jika tidak ingin mengubah.
+                  </p>
+                )}
               </div>
 
               <div>
@@ -434,9 +464,10 @@ const SuratMasuk = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-semibold transition cursor-pointer"
+                  disabled={uploading}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-semibold transition cursor-pointer disabled:opacity-50"
                 >
-                  {editId ? 'Simpan Perubahan' : 'Tambah Surat'}
+                  {uploading ? 'Mengunggah...' : (editId ? 'Simpan Perubahan' : 'Tambah Surat')}
                 </button>
               </div>
             </form>

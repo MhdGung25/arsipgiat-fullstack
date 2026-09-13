@@ -101,7 +101,7 @@ const Disposisi = () => {
         nama_pegawai: item.nama_pegawai || '',
         sifat: item.sifat || 'Biasa',
         catatan: item.catatan || '',
-        tanggal_disposisi: item.tanggal_disposisi || '',
+        tanggal_disposisi: item.tanggal_disposisi || new Date().toISOString().split('T')[0],
         status: item.status || 'Pending',
       });
     } else {
@@ -121,16 +121,23 @@ const Disposisi = () => {
     const selectedSurat = suratOptions.find(s => s.id === formData.id_surat);
     const selectedPegawai = userOptions.find(u => u.id === formData.user_id);
 
+    // Payload yang dibersihkan agar aman disimpan ke Firestore
     const payload = {
-      id_surat: formData.id_surat,
-      user_id: isManualUser ? '' : formData.user_id,
-      nama_pegawai: isManualUser ? formData.nama_pegawai : (selectedPegawai?.nama || selectedPegawai?.name || ''),
-      sifat: formData.sifat,
+      id_surat: formData.id_surat || '',
+      user_id: isManualUser ? '' : (formData.user_id || ''),
+      nama_pegawai: isManualUser ? (formData.nama_pegawai || '') : (selectedPegawai?.nama || selectedPegawai?.name || ''),
+      sifat: formData.sifat || 'Biasa',
       catatan: formData.catatan || '',
-      tanggal_disposisi: formData.tanggal_disposisi,
-      status: formData.status,
-      surat_masuk: selectedSurat ? { nomor_surat: selectedSurat.nomor_surat, perihal: selectedSurat.perihal } : null,
-      pegawai: selectedPegawai ? { nama: selectedPegawai.nama || selectedPegawai.name, jabatan: selectedPegawai.jabatan } : null,
+      tanggal_disposisi: formData.tanggal_disposisi || '',
+      status: formData.status || 'Pending',
+      surat_masuk: selectedSurat ? { 
+        nomor_surat: selectedSurat.nomor_surat || '', 
+        perihal: selectedSurat.perihal || '' 
+      } : null,
+      pegawai: selectedPegawai ? { 
+        nama: selectedPegawai.nama || selectedPegawai.name || '', 
+        jabatan: selectedPegawai.jabatan || '' 
+      } : null,
     };
 
     try {

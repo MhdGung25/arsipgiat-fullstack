@@ -101,8 +101,8 @@ const Agenda = () => {
         setFormData((prev) => ({
           ...prev,
           id_surat: value,
-          nama_acara: prev.nama_acara || selectedSurat.perihal,
-          tanggal_giat: prev.tanggal_giat || selectedSurat.tanggal_surat,
+          nama_acara: prev.nama_acara || selectedSurat.perihal || '',
+          tanggal_giat: prev.tanggal_giat || selectedSurat.tanggal_surat || '',
         }));
         return;
       }
@@ -112,17 +112,29 @@ const Agenda = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Cari data surat jika ID surat dipilih
     const selectedSurat = suratList.find((s) => s.id === formData.id_surat);
 
+    // Bersihkan payload agar tidak mengirimkan data undefined atau tipe data salah ke Firestore
     const payload = {
-      ...formData,
-      id_surat: formData.id_surat || null,
-      surat_masuk: selectedSurat ? { nomor_surat: selectedSurat.nomor_surat, perihal: selectedSurat.perihal } : null,
+      id_surat: formData.id_surat ? formData.id_surat : null,
+      nama_acara: formData.nama_acara || '',
+      tanggal_giat: formData.tanggal_giat || '',
+      waktu_mulai: formData.waktu_mulai || '',
+      waktu_selesai: formData.waktu_selesai || '',
+      tempat: formData.tempat || '',
+      keterangan: formData.keterangan || '',
+      surat_masuk: selectedSurat ? { 
+        nomor_surat: selectedSurat.nomor_surat || '', 
+        perihal: selectedSurat.perihal || '' 
+      } : null,
     };
 
     try {
       if (editId) {
-        await updateDoc(doc(db, 'agenda', editId), payload);
+        const docRef = doc(db, 'agenda', editId);
+        await updateDoc(docRef, payload);
       } else {
         await addDoc(collection(db, 'agenda'), payload);
       }
@@ -131,7 +143,7 @@ const Agenda = () => {
       fetchData();
     } catch (error) {
       console.error('Gagal menyimpan agenda:', error);
-      alert('Terjadi kesalahan pada server/database.');
+      alert('Terjadi kesalahan pada server/database saat menyimpan data.');
     }
   };
 
@@ -142,6 +154,7 @@ const Agenda = () => {
         fetchData();
       } catch (error) {
         console.error('Gagal menghapus data:', error);
+        alert('Gagal menghapus data dari database.');
       }
     }
   };
@@ -220,7 +233,7 @@ const Agenda = () => {
                       <td className="py-4 px-6 text-center text-slate-400 text-xs">{indexOfFirstItem + index + 1}</td>
                       <td className="py-4 px-6 font-bold text-slate-800 dark:text-slate-100">{item.nama_acara}</td>
                       <td className="py-4 px-6 text-xs">
-                        {item.surat_masuk ? (
+                        {item.surat_masuk && item.surat_masuk.nomor_surat ? (
                           <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-md border border-emerald-200">
                             <FileText size={12} /> {item.surat_masuk.nomor_surat}
                           </span>
