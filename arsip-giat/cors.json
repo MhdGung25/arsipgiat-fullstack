@@ -1,8 +1,8 @@
 [
   {
-    "origin": ["http://localhost:5173", "https://arsip-giat.vercel.app"],
+    "origin": ["https://www.arsipgiatrancaekek.com", "https://arsipgiatrancaekek.com", "http://localhost:5173"],
     "method": ["GET", "PUT", "POST", "DELETE", "OPTIONS"],
-    "maxAgeSeconds": 3600,
-    "responseHeader": ["Content-Type", "Authorization", "Access-Control-Allow-Origin"]
+    "responseHeader": ["Content-Type", "Authorization", "x-goog-resumable"],
+    "maxAgeSeconds": 3600
   }
 ]
