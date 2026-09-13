@@ -40,7 +40,6 @@ const Dashboard = () => {
       }
     }
 
-    // Menggunakan onSnapshot agar data otomatis ter-update secara real-time
     let suratList = [];
     let disposisiList = [];
     let agendaList = [];
@@ -76,7 +75,6 @@ const Dashboard = () => {
       setLoading(false);
     };
 
-    // Pasang listener real-time untuk masing-masing koleksi Firestore
     const unsubSurat = onSnapshot(collection(db, 'surat_masuk'), (snapshot) => {
       suratList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       updateDashboardState();
@@ -105,7 +103,6 @@ const Dashboard = () => {
       console.error("Error listener pegawai:", error);
     });
 
-    // Cleanup listener saat komponen di-unmount
     return () => {
       unsubSurat();
       unsubDisposisi();
@@ -124,6 +121,10 @@ const Dashboard = () => {
 
   const counters = data.counters;
   const status = data.disposisi_status;
+
+  // Deklarasi variabel displayName dengan aman untuk mencegah ReferenceError
+  const displayName = user?.nama || user?.name || 'Linda Agustina.A.Md';
+
   return (
     <div className="space-y-6 p-4 md:p-6 bg-slate-50 dark:bg-slate-950 min-h-screen transition-colors duration-200">
       <div className="bg-gradient-to-r from-emerald-600 to-teal-700 dark:from-emerald-700 dark:to-teal-900 rounded-2xl p-6 text-white shadow-lg shadow-emerald-900/10">

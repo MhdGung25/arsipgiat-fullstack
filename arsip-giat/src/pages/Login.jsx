@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, LogIn, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Mail, Lock, LogIn, Eye, EyeOff, Loader2 } from 'lucide-react'; // Gunakan Loader2
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase';
 import logo from "../assets/logo-rancaekek.png";
@@ -138,6 +138,7 @@ const Login = () => {
             >
               {loading ? (
                 <>
+                  {/* Gunakan Loader2 yang benar */}
                   <Loader2 size={18} className="animate-spin" />
                   Memproses...
                 </>

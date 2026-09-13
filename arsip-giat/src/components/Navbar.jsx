@@ -15,18 +15,15 @@ import { db } from "../firebase";
 const Navbar = ({ onMenuClick, user }) => {
   const location = useLocation();
 
-  // State Notifikasi & Dropdown
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // 1. Inisialisasi Mode Gelap dari localStorage
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem("theme") === "dark";
   });
 
-  // 2. Efek Sinkronisasi Mode Gelap ke Tag <html>
   useEffect(() => {
     const root = document.documentElement;
     if (darkMode) {
@@ -38,7 +35,6 @@ const Navbar = ({ onMenuClick, user }) => {
     }
   }, [darkMode]);
 
-  // 3. Fetch Data Notifikasi Real-time dari Firebase Firestore
   useEffect(() => {
     const q = query(collection(db, "notifikasi"), orderBy("created_at", "desc"));
     
@@ -49,7 +45,6 @@ const Navbar = ({ onMenuClick, user }) => {
       }));
       setNotifications(dataNotif);
       
-      // Hitung jumlah yang belum dibaca
       const unread = dataNotif.filter((item) => !item.is_read && !item.read_at).length;
       setUnreadCount(unread);
     }, (error) => {
@@ -59,7 +54,6 @@ const Navbar = ({ onMenuClick, user }) => {
     return () => unsubscribe();
   }, []);
 
-  // Tutup dropdown jika klik di luar
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -74,7 +68,6 @@ const Navbar = ({ onMenuClick, user }) => {
     setDarkMode((prev) => !prev);
   };
 
-  // Fungsi menandai semua / satu notifikasi telah dibaca di Firebase
   const handleMarkAsRead = async (id = null) => {
     try {
       if (id) {
@@ -99,7 +92,6 @@ const Navbar = ({ onMenuClick, user }) => {
     }
   };
 
-  // Judul Halaman Dinamis
   const getPageTitle = (path) => {
     switch (path) {
       case "/":
@@ -121,9 +113,8 @@ const Navbar = ({ onMenuClick, user }) => {
     }
   };
 
-  // Helper Inisial Nama
   const getInitials = (name) => {
-    if (!name) return "US";
+    if (!name) return "LA";
     const parts = name.trim().split(" ").filter(Boolean);
     if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
@@ -131,14 +122,13 @@ const Navbar = ({ onMenuClick, user }) => {
 
   const title = getPageTitle(location.pathname);
   
-  // Mengambil data murni dari prop user (tanpa nilai dummy/statis)
-  const userName = user?.nama || user?.name || "Pengguna";
-  const userEmail = user?.email || "";
+  // Dikunci permanen menggunakan namamu sebagai fallback
+  const userName = user?.nama || user?.name || "Linda Agustina.A.Md";
+  const userEmail = user?.email || "admin@rancaekek.com";
   const initials = getInitials(userName);
 
   return (
     <header className="h-16 bg-white dark:bg-[#0b0f19] border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between px-4 lg:px-6 sticky top-0 z-30 transition-colors duration-200 shrink-0">
-      {/* Sisi Kiri: Tombol Menu (Mobile), Judul, & Breadcrumbs */}
       <div className="flex items-center gap-3">
         <button
           onClick={onMenuClick}
@@ -161,9 +151,7 @@ const Navbar = ({ onMenuClick, user }) => {
         </div>
       </div>
 
-      {/* Sisi Kanan: Tombol Mode Gelap, Notifikasi, & Profil */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {/* Tombol Toggle Mode Terang/Gelap */}
         <button
           onClick={toggleDarkMode}
           className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/50 flex items-center justify-center text-slate-600 dark:text-amber-300 hover:bg-slate-200 dark:hover:bg-slate-700/80 transition-all cursor-pointer"
@@ -177,7 +165,6 @@ const Navbar = ({ onMenuClick, user }) => {
           )}
         </button>
 
-        {/* Tombol & Dropdown Notifikasi */}
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setIsDropdownOpen((prev) => !prev)}
@@ -190,7 +177,6 @@ const Navbar = ({ onMenuClick, user }) => {
             )}
           </button>
 
-          {/* Panel Dropdown Notifikasi */}
           {isDropdownOpen && (
             <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 overflow-hidden transition-all">
               <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
@@ -251,10 +237,8 @@ const Navbar = ({ onMenuClick, user }) => {
           )}
         </div>
 
-        {/* Pembatas Garis */}
         <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block mx-1"></div>
 
-        {/* Profil Pengguna */}
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-md shrink-0">
             {initials}
