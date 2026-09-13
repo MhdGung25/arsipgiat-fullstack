@@ -7,7 +7,6 @@ const DefaultLayout = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Ambil data user dengan aman dari localStorage
   let user = {};
   try {
     const storedUser = localStorage.getItem("user");
@@ -27,7 +26,7 @@ const DefaultLayout = () => {
   };
 
   return (
-    <div className="flex h-[100dvh] w-screen bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 overflow-hidden">
+    <div className="flex min-h-screen w-full bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 overflow-x-hidden">
       {/* Sidebar untuk Mobile & Desktop */}
       <Sidebar
         isOpen={sidebarOpen}
@@ -37,11 +36,11 @@ const DefaultLayout = () => {
       />
 
       {/* Area Utama */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
         <Navbar onMenuClick={() => setSidebarOpen(true)} user={user} />
 
-        {/* Konten Utama dengan penanganan scroll aman untuk HP */}
-        <main className="flex-1 overflow-y-auto bg-slate-100 dark:bg-slate-900 transition-colors duration-200">
+        {/* Konten Utama dengan scroll alami yang aman untuk HP */}
+        <main className="flex-1 bg-slate-100 dark:bg-slate-900 transition-colors duration-200">
           <Outlet />
         </main>
       </div>
