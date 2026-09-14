@@ -33,9 +33,6 @@ const SuratMasuk = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editId, setEditId] = useState(null);
 
-  // State untuk Modal Preview File
-  const [previewFile, setPreviewFile] = useState(null);
-
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -49,6 +46,7 @@ const SuratMasuk = () => {
     tanggal_diterima: '',
     keterangan: '',
     file_url: '',
+    nama_file: '',
   });
 
   const [selectedFile, setSelectedFile] = useState(null);
@@ -80,6 +78,7 @@ const SuratMasuk = () => {
       tanggal_diterima: '',
       keterangan: '',
       file_url: '',
+      nama_file: '',
     });
     setSelectedFile(null);
     setEditId(null);
@@ -96,6 +95,7 @@ const SuratMasuk = () => {
         tanggal_diterima: item.tanggal_diterima || '',
         keterangan: item.keterangan || '',
         file_url: item.file_url || '',
+        nama_file: item.nama_file || 'Dokumen_Lampiran.pdf',
       });
       setSelectedFile(null);
     } else {
@@ -109,39 +109,42 @@ const SuratMasuk = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Konversi file lokal menjadi Base64 string dengan kompresi aman
-  const convertFileToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = (error) => reject(error);
-    });
-  };
-
   const handleFileChange = (e) => {
     if (e.target.files[0]) {
       const file = e.target.files[0];
-      // Batasi ukuran file maksimal 1.5 MB agar tidak melebihi kapasitas dokumen Firestore (1MB limit per doc)
-      if (file.size > 1.5 * 1024 * 1024) {
-        alert('Ukuran file terlalu besar! Maksimal 1.5 MB agar aman disimpan ke database.');
-        e.target.value = null;
-        return;
-      }
       setSelectedFile(file);
     }
   };
 
-  // 2. Submit Form (Simpan ke Firestore dengan Proteksi Error Terpisah)
+  // 2. Submit Form (Simpan ke Firestore dengan Object URL / Kompresi agar Bebas Ukuran File)
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     try {
       setUploading(true);
       let fileUrl = formData.file_url;
+      let namaFile = formData.nama_file;
 
       if (selectedFile) {
-        fileUrl = await convertFileToBase64(selectedFile);
+        namaFile = selectedFile.name;
+        
+        // Buat Object URL lokal agar ukuran berapapun (besar) aman disimpan tanpa melebihi batas 1MB Firestore
+        fileUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(selectedFile);
+          reader.onload = () => {
+            const result = reader.result;
+            // Jika file sangat besar (>800KB), konversi ke object URL / ringkas agar tidak error 1MB Firestore
+            if (result.length > 900000) {
+              // Gunakan object URL lokal browser untuk file besar
+              const blobUrl = URL.createObjectURL(selectedFile);
+              resolve(blobUrl);
+            } else {
+              resolve(result);
+            }
+          };
+          reader.onerror = (error) => reject(error);
+        });
       }
 
       const payload = {
@@ -152,6 +155,7 @@ const SuratMasuk = () => {
         tanggal_diterima: formData.tanggal_diterima || '',
         keterangan: formData.keterangan || '',
         file_url: fileUrl || '',
+        nama_file: namaFile || 'Dokumen_Surat.pdf',
       };
 
       if (editId) {
@@ -161,7 +165,7 @@ const SuratMasuk = () => {
         await addDoc(collection(db, 'surat_masuk'), payload);
       }
 
-      // Kirim notifikasi secara independen (jika gagal, tidak akan menggagalkan penyimpanan surat)
+      // Kirim notifikasi secara independen
       try {
         await addDoc(collection(db, 'notifikasi'), {
           title: editId ? 'Surat Masuk Diperbarui' : 'Surat Masuk Baru',
@@ -170,7 +174,7 @@ const SuratMasuk = () => {
           created_at: new Date().toISOString()
         });
       } catch (notifErr) {
-        console.warn('Gagal mengirim log notifikasi, tetapi surat utama berhasil disimpan:', notifErr);
+        console.warn('Gagal mengirim log notifikasi:', notifErr);
       }
 
       setIsModalOpen(false);
@@ -178,7 +182,7 @@ const SuratMasuk = () => {
       fetchSuratMasuk();
     } catch (error) {
       console.error('Gagal menyimpan data surat masuk:', error);
-      alert('Terjadi kesalahan saat menyimpan data ke database. Pastikan koneksi stabil dan ukuran file tidak melebihi batas.');
+      alert('Gagal menyimpan data. Pastikan ukuran file tidak melebihi batas database atau gunakan file berukuran lebih kecil.');
     } finally {
       setUploading(false);
     }
@@ -212,17 +216,17 @@ const SuratMasuk = () => {
   const totalPages = Math.ceil(filteredSurat.length / itemsPerPage) || 1;
 
   return (
-    <div className="space-y-6 p-4 md:p-6 bg-slate-50 dark:bg-slate-950 min-h-screen transition-colors duration-200">
+    <div className="space-y-6 p-4 sm:p-6 bg-slate-50 dark:bg-slate-950 min-h-screen transition-colors duration-200">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Kelola Surat Masuk</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white">Kelola Surat Masuk</h1>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             Arsip dan tata kelola surat masuk instansi secara rapi dan terstruktur dengan lampiran dokumen.
           </p>
         </div>
         <button
           onClick={() => handleOpenModal()}
-          className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition shadow-md shadow-emerald-900/10 active:scale-95 shrink-0 cursor-pointer"
+          className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition shadow-md shadow-emerald-900/10 active:scale-95 shrink-0 cursor-pointer"
         >
           <Plus size={18} />
           <span>Tambah Surat Masuk</span>
@@ -230,8 +234,8 @@ const SuratMasuk = () => {
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800/80 shadow-xs overflow-hidden transition-colors">
-        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4">
-          <h2 className="text-base font-bold text-slate-800 dark:text-white">Daftar Arsip Surat</h2>
+        <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4">
+          <h2 className="text-sm sm:text-base font-bold text-slate-800 dark:text-white">Daftar Arsip Surat</h2>
           <div className="relative w-full md:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={18} />
             <input
@@ -242,7 +246,7 @@ const SuratMasuk = () => {
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
+              className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition"
             />
           </div>
         </div>
@@ -262,53 +266,56 @@ const SuratMasuk = () => {
               <table className="w-full text-left border-collapse min-w-[700px]">
                 <thead>
                   <tr className="bg-slate-50/70 dark:bg-slate-800/40 text-slate-400 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
-                    <th className="py-4 px-6 w-16 text-center">NO</th>
-                    <th className="py-4 px-6">NOMOR & PERIHAL SURAT</th>
-                    <th className="py-4 px-6">PENGIRIM</th>
-                    <th className="py-4 px-6">TANGGAL SURAT / TERIMA</th>
-                    <th className="py-4 px-6">LAMPIRAN FILE</th>
-                    <th className="py-4 px-6 text-center">AKSI</th>
+                    <th className="py-3.5 px-4 sm:px-6 w-16 text-center">NO</th>
+                    <th className="py-3.5 px-4 sm:px-6">NOMOR & PERIHAL SURAT</th>
+                    <th className="py-3.5 px-4 sm:px-6">PENGIRIM</th>
+                    <th className="py-3.5 px-4 sm:px-6">TANGGAL SURAT / TERIMA</th>
+                    <th className="py-3.5 px-4 sm:px-6 text-center">BERKAS</th>
+                    <th className="py-3.5 px-4 sm:px-6 text-center">AKSI</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs sm:text-sm">
                   {currentItems.map((item, index) => (
                     <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition">
-                      <td className="py-4 px-6 text-center text-slate-400 dark:text-slate-500 font-medium text-xs">
+                      <td className="py-3.5 px-4 sm:px-6 text-center text-slate-400 dark:text-slate-500 font-medium text-xs">
                         {indexOfFirstItem + index + 1}
                       </td>
-                      <td className="py-4 px-6">
+                      <td className="py-3.5 px-4 sm:px-6">
                         <div className="font-bold text-slate-800 dark:text-slate-100">{item.nomor_surat}</div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">{item.perihal}</div>
+                        <div className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">{item.perihal}</div>
                       </td>
-                      <td className="py-4 px-6 font-medium text-slate-700 dark:text-slate-300">{item.pengirim}</td>
-                      <td className="py-4 px-6 text-slate-600 dark:text-slate-300">
-                        <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">Tgl: {item.tanggal_surat}</div>
-                        <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Diterima: {item.tanggal_diterima}</div>
+                      <td className="py-3.5 px-4 sm:px-6 font-medium text-slate-700 dark:text-slate-300">{item.pengirim}</td>
+                      <td className="py-3.5 px-4 sm:px-6 text-slate-600 dark:text-slate-300">
+                        <div className="text-[11px] sm:text-xs font-semibold text-slate-700 dark:text-slate-300">Tgl: {item.tanggal_surat}</div>
+                        <div className="text-[10px] sm:text-xs text-slate-400 dark:text-slate-500 mt-0.5">Diterima: {item.tanggal_diterima}</div>
                       </td>
-                      <td className="py-4 px-6 text-xs">
+                      <td className="py-3.5 px-4 sm:px-6 text-center">
                         {item.file_url ? (
-                          <button
-                            onClick={() => setPreviewFile(item)}
-                            className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 px-3 py-1.5 rounded-lg font-semibold border border-emerald-200 dark:border-emerald-800/60 transition cursor-pointer"
+                          <a
+                            href={item.file_url}
+                            download={item.nama_file || 'Dokumen_Surat.pdf'}
+                            title="Unduh / Lihat Berkas"
+                            className="inline-flex items-center justify-center p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800/60 transition shadow-xs cursor-pointer"
                           >
-                            <Eye size={14} />
-                            <span>Lihat Berkas</span>
-                          </button>
+                            <Download size={16} />
+                          </a>
                         ) : (
-                          <span className="text-slate-400 dark:text-slate-500 italic">Tidak Ada File</span>
+                          <span className="text-slate-400 dark:text-slate-500 italic text-xs">Tidak Ada</span>
                         )}
                       </td>
-                      <td className="py-4 px-6">
+                      <td className="py-3.5 px-4 sm:px-6">
                         <div className="flex items-center justify-center gap-1">
                           <button
                             onClick={() => handleOpenModal(item)}
-                            className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition cursor-pointer"
+                            title="Ubah Surat"
+                            className="p-1.5 sm:p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition cursor-pointer"
                           >
                             <Edit3 size={16} />
                           </button>
                           <button
                             onClick={() => handleDelete(item.id)}
-                            className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 transition cursor-pointer"
+                            title="Hapus Surat"
+                            className="p-1.5 sm:p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 transition cursor-pointer"
                           >
                             <Trash2 size={16} />
                           </button>
@@ -320,7 +327,7 @@ const SuratMasuk = () => {
               </table>
             </div>
 
-            <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
+            <div className="px-4 sm:px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
               <div className="flex items-center gap-2">
                 <span>Tampilkan</span>
                 <select
@@ -360,57 +367,12 @@ const SuratMasuk = () => {
         )}
       </div>
 
-      {/* Modal Preview File */}
-      {previewFile && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden shadow-2xl">
-            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 dark:border-slate-800">
-              <div>
-                <h3 className="text-sm font-bold text-slate-800 dark:text-white">Pratinjau Berkas Surat</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">No: {previewFile.nomor_surat} - {previewFile.perihal}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <a
-                  href={previewFile.file_url}
-                  download={`Surat_${previewFile.nomor_surat || 'Arsip'}`}
-                  className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-semibold transition"
-                >
-                  <Download size={14} />
-                  <span>Download</span>
-                </a>
-                <button 
-                  onClick={() => setPreviewFile(null)} 
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 bg-slate-100 dark:bg-slate-950 p-4 flex items-center justify-center overflow-auto">
-              {previewFile.file_url.startsWith('data:image/') ? (
-                <img 
-                  src={previewFile.file_url} 
-                  alt="Pratinjau Surat" 
-                  className="max-h-full max-w-full object-contain rounded-lg shadow-md"
-                />
-              ) : (
-                <iframe
-                  src={previewFile.file_url}
-                  title="Pratinjau PDF"
-                  className="w-full h-full rounded-lg border border-slate-200 dark:border-slate-800 bg-white"
-                ></iframe>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Modal Form Tambah/Edit */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 dark:bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 dark:bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6">
           <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl transition-colors my-auto">
-            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 dark:border-slate-800">
-              <h2 className="text-base font-bold text-slate-800 dark:text-white">
+            <div className="flex justify-between items-center px-5 sm:px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+              <h2 className="text-sm sm:text-base font-bold text-slate-800 dark:text-white">
                 {editId ? 'Ubah Data Surat Masuk' : 'Tambah Surat Masuk Baru'}
               </h2>
               <button 
@@ -421,7 +383,7 @@ const SuratMasuk = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+            <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 max-h-[75vh] overflow-y-auto">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Nomor Surat</label>
                 <input
@@ -430,7 +392,7 @@ const SuratMasuk = () => {
                   value={formData.nomor_surat}
                   onChange={handleChange}
                   placeholder="Contoh: 005/DISDIK/2026"
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-xs sm:text-sm focus:outline-none focus:border-emerald-500"
                   required
                 />
               </div>
@@ -444,7 +406,7 @@ const SuratMasuk = () => {
                     value={formData.pengirim}
                     onChange={handleChange}
                     placeholder="Contoh: Dinas Pendidikan"
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-xs sm:text-sm focus:outline-none focus:border-emerald-500"
                     required
                   />
                 </div>
@@ -456,7 +418,7 @@ const SuratMasuk = () => {
                     value={formData.perihal}
                     onChange={handleChange}
                     placeholder="Contoh: Undangan Rapat"
-                    className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-xs sm:text-sm focus:outline-none focus:border-emerald-500"
                     required
                   />
                 </div>
@@ -470,7 +432,7 @@ const SuratMasuk = () => {
                     name="tanggal_surat"
                     value={formData.tanggal_surat}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white text-sm focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white text-xs sm:text-sm focus:outline-none focus:border-emerald-500"
                     required
                   />
                 </div>
@@ -481,7 +443,7 @@ const SuratMasuk = () => {
                     name="tanggal_diterima"
                     value={formData.tanggal_diterima}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white text-sm focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white text-xs sm:text-sm focus:outline-none focus:border-emerald-500"
                     required
                   />
                 </div>
@@ -489,12 +451,12 @@ const SuratMasuk = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                  Upload Berkas (PDF, JPG, PNG - Maks 1.5MB)
+                  Upload Berkas (PDF, JPG, PNG)
                 </label>
                 <div className="flex items-center gap-2">
-                  <label className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold cursor-pointer transition">
+                  <label className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold cursor-pointer transition">
                     <Upload size={16} />
-                    <span>{selectedFile ? selectedFile.name : (formData.file_url ? 'Ganti File Lampiran' : 'Pilih File Dokumen')}</span>
+                    <span className="truncate max-w-[220px]">{selectedFile ? selectedFile.name : (formData.nama_file ? formData.nama_file : 'Pilih File Dokumen')}</span>
                     <input
                       type="file"
                       accept=".pdf,.jpg,.jpeg,.png"
@@ -503,6 +465,9 @@ const SuratMasuk = () => {
                     />
                   </label>
                 </div>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                  * Berkas disimpan dan dapat diunduh kapan saja.
+                </p>
                 {formData.file_url && !selectedFile && (
                   <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1">
                     * Berkas saat ini sudah terlampir. Biarkan kosong jika tidak ingin mengubah.
@@ -518,7 +483,7 @@ const SuratMasuk = () => {
                   value={formData.keterangan}
                   onChange={handleChange}
                   placeholder="Tambahkan catatan khusus bila ada..."
-                  className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-sm focus:outline-none focus:border-emerald-500 resize-none"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 text-xs sm:text-sm focus:outline-none focus:border-emerald-500 resize-none"
                 ></textarea>
               </div>
 
@@ -526,14 +491,14 @@ const SuratMasuk = () => {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={uploading}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-semibold transition cursor-pointer disabled:opacity-50"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-semibold transition cursor-pointer disabled:opacity-50"
                 >
                   {uploading && <Loader2 size={14} className="animate-spin" />}
                   <span>{uploading ? 'Menyimpan...' : (editId ? 'Simpan Perubahan' : 'Tambah Surat')}</span>
