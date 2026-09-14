@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { 
-  Mail, 
   FileText, 
   Calendar, 
+  FileCheck, 
   Users, 
   Clock, 
   CheckCircle2, 
@@ -12,200 +12,202 @@ import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 
 const Dashboard = () => {
-  const [data, setData] = useState({
-    counters: {
-      total_surat_masuk: 0,
-      total_disposisi: 0,
-      total_agenda: 0,
-      total_pegawai: 0,
-    },
-    disposisi_status: {
-      pending: 0,
-      proses: 0,
-      selesai: 0,
-    },
-    recent_surat_masuk: [],
-    recent_disposisi: [],
+  const [stats, setStats] = useState({
+    suratMasukCount: 0,
+    agendaCount: 0,
+    disposisiCount: 0,
+    pegawaiCount: 0,
   });
+
+  const [recentDisposisi, setRecentDisposisi] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
 
+  // Real-time listener menggunakan onSnapshot untuk semua koleksi
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (e) {
-        console.error('Gagal membaca data user dari storage:', e);
-      }
-    }
+    setLoading(true);
 
-    let suratList = [];
-    let disposisiList = [];
-    let agendaList = [];
-    let pegawaiList = [];
-
-    const updateDashboardState = () => {
-      let pendingCount = 0;
-      let prosesCount = 0;
-      let selesaiCount = 0;
-
-      disposisiList.forEach(item => {
-        const statusVal = (item.status || '').toLowerCase();
-        if (statusVal.includes('pending')) pendingCount++;
-        else if (statusVal.includes('proses')) prosesCount++;
-        else if (statusVal.includes('selesai')) selesaiCount++;
-      });
-
-      setData({
-        counters: {
-          total_surat_masuk: suratList.length,
-          total_disposisi: disposisiList.length,
-          total_agenda: agendaList.length,
-          total_pegawai: pegawaiList.length,
-        },
-        disposisi_status: {
-          pending: pendingCount,
-          proses: prosesCount,
-          selesai: selesaiCount,
-        },
-        recent_surat_masuk: suratList.slice(0, 5),
-        recent_disposisi: disposisiList.slice(0, 5),
-      });
-      setLoading(false);
-    };
-
+    // Listener Surat Masuk
     const unsubSurat = onSnapshot(collection(db, 'surat_masuk'), (snapshot) => {
-      suratList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      updateDashboardState();
-    }, (error) => {
-      console.warn("Koneksi real-time surat_masuk disesuaikan ulang:", error.code);
+      setStats((prev) => ({ ...prev, suratMasukCount: snapshot.size }));
     });
 
-    const unsubDisposisi = onSnapshot(collection(db, 'disposisi'), (snapshot) => {
-      disposisiList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      updateDashboardState();
-    }, (error) => {
-      console.warn("Koneksi real-time disposisi disesuaikan ulang:", error.code);
-    });
-
+    // Listener Agenda
     const unsubAgenda = onSnapshot(collection(db, 'agenda'), (snapshot) => {
-      agendaList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      updateDashboardState();
-    }, (error) => {
-      console.warn("Koneksi real-time agenda disesuaikan ulang:", error.code);
+      setStats((prev) => ({ ...prev, agendaCount: snapshot.size }));
     });
 
+    // Listener Disposisi (Sekaligus mengambil data terbaru untuk tabel ringkasan)
+    const unsubDisposisi = onSnapshot(collection(db, 'disposisi'), (snapshot) => {
+      const dataDisposisi = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setStats((prev) => ({ ...prev, disposisiCount: snapshot.size }));
+      
+      // Ambil 5 disposisi terbaru untuk ditampilkan di dasbor
+      setRecentDisposisi(dataDisposisi.slice(0, 5));
+    });
+
+    // Listener Pegawai
     const unsubPegawai = onSnapshot(collection(db, 'pegawai'), (snapshot) => {
-      pegawaiList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      updateDashboardState();
-    }, (error) => {
-      console.warn("Koneksi real-time pegawai disesuaikan ulang:", error.code);
+      setStats((prev) => ({ ...prev, pegawaiCount: snapshot.size }));
+      setLoading(false);
     });
 
+    // Cleanup listener ketika komponen ditutup
     return () => {
       unsubSurat();
-      unsubDisposisi();
       unsubAgenda();
+      unsubDisposisi();
       unsubPegawai();
     };
   }, []);
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 dark:border-emerald-400"></div>
-      </div>
-    );
-  }
-
-  const counters = data.counters;
-  const status = data.disposisi_status;
-  const displayName = user?.nama || user?.name || 'Linda Agustina.A.Md';
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'Selesai':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60">
+            <CheckCircle2 size={11} /> Selesai
+          </span>
+        );
+      case 'Proses':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800/60">
+            <Clock size={11} /> Proses
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60">
+            <AlertCircle size={11} /> Pending
+          </span>
+        );
+    }
+  };
 
   return (
-    <div className="p-4 lg:p-6 space-y-5 bg-slate-50 dark:bg-slate-950 min-h-full transition-colors duration-200">
-      {/* Banner Selamat Datang */}
-      <div className="bg-gradient-to-r from-emerald-600 to-teal-700 dark:from-emerald-700 dark:to-teal-900 rounded-2xl p-5 lg:p-6 text-white shadow-md">
-        <h1 className="text-xl lg:text-2xl font-bold tracking-tight">
-          Selamat Datang Kembali, {displayName}! 👋
-        </h1>
-        <p className="text-emerald-100 text-xs lg:text-sm mt-1">
-          Berikut adalah ringkasan analitik dan aktivitas terkini di Aplikasi ArsipGiat Kecamatan Rancaekek.
-        </p>
+    <div className="space-y-6 p-4 md:p-6 bg-slate-50 dark:bg-slate-950 min-h-screen transition-colors duration-200">
+      {/* Header Sambutan (Bagian status sistem di kanan sudah dihapus bersih) */}
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-800 dark:text-white tracking-tight">
+            Selamat Datang, <span className="text-emerald-600 dark:text-emerald-400">Linda Agustina.A.Md</span> 👋
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Berikut adalah ringkasan sistem informasi arsip dan kegiatan Kecamatan Rancaekek secara real-time.
+          </p>
+        </div>
       </div>
 
-      {/* Grid Kartu Statistik */}
+      {/* Kartu Statistik Ringkasan */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-slate-900 p-4 lg:p-5 rounded-2xl border border-slate-100 dark:border-slate-800/80 shadow-xs flex items-center justify-between">
+        {/* Surat Masuk */}
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Surat Masuk</p>
-            <h3 className="text-xl lg:text-2xl font-extrabold text-slate-800 dark:text-white mt-1">{counters.total_surat_masuk}</h3>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Surat Masuk</p>
+            <h3 className="text-2xl font-extrabold text-slate-800 dark:text-white mt-1">
+              {loading ? '...' : stats.suratMasukCount}
+            </h3>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 flex items-center justify-center shrink-0">
-            <Mail size={22} />
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 p-4 lg:p-5 rounded-2xl border border-slate-100 dark:border-slate-800/80 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Disposisi</p>
-            <h3 className="text-xl lg:text-2xl font-extrabold text-slate-800 dark:text-white mt-1">{counters.total_disposisi}</h3>
-          </div>
-          <div className="w-11 h-11 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
             <FileText size={22} />
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-4 lg:p-5 rounded-2xl border border-slate-100 dark:border-slate-800/80 shadow-xs flex items-center justify-between">
+        {/* Agenda Kegiatan */}
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Agenda Kegiatan</p>
-            <h3 className="text-xl lg:text-2xl font-extrabold text-slate-800 dark:text-white mt-1">{counters.total_agenda}</h3>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Agenda Kegiatan</p>
+            <h3 className="text-2xl font-extrabold text-slate-800 dark:text-white mt-1">
+              {loading ? '...' : stats.agendaCount}
+            </h3>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center">
             <Calendar size={22} />
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 p-4 lg:p-5 rounded-2xl border border-slate-100 dark:border-slate-800/80 shadow-xs flex items-center justify-between">
+        {/* Disposisi */}
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Pegawai</p>
-            <h3 className="text-xl lg:text-2xl font-extrabold text-slate-800 dark:text-white mt-1">{counters.total_pegawai}</h3>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Disposisi Surat</p>
+            <h3 className="text-2xl font-extrabold text-slate-800 dark:text-white mt-1">
+              {loading ? '...' : stats.disposisiCount}
+            </h3>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+            <FileCheck size={22} />
+          </div>
+        </div>
+
+        {/* Pegawai */}
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Data Pegawai</p>
+            <h3 className="text-2xl font-extrabold text-slate-800 dark:text-white mt-1">
+              {loading ? '...' : stats.pegawaiCount}
+            </h3>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center">
             <Users size={22} />
           </div>
         </div>
       </div>
 
-      {/* Bagian Status Penugasan Disposisi */}
-      <div className="bg-white dark:bg-slate-900 p-5 lg:p-6 rounded-2xl border border-slate-100 dark:border-slate-800/80 shadow-xs">
-        <h2 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-wide mb-4">Status Penugasan Disposisi</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-          <div className="p-3.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/40 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <AlertCircle className="text-amber-600" size={18} />
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">Pending</span>
-            </div>
-            <span className="text-base font-extrabold text-amber-700">{status.pending}</span>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <Clock className="text-blue-600" size={18} />
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">Dalam Proses</span>
-            </div>
-            <span className="text-base font-extrabold text-blue-700">{status.proses}</span>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <CheckCircle2 className="text-emerald-600" size={18} />
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase">Selesai</span>
-            </div>
-            <span className="text-base font-extrabold text-emerald-700">{status.selesai}</span>
+      {/* Tabel Ringkasan Disposisi Terbaru */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs overflow-hidden">
+        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-bold text-slate-800 dark:text-white">Disposisi Penugasan Terbaru</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Pembaruan langsung secara real-time dari aktivitas instansi.</p>
           </div>
         </div>
+
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-emerald-600"></div>
+          </div>
+        ) : recentDisposisi.length === 0 ? (
+          <div className="p-10 text-center text-slate-400 text-xs">
+            Belum ada data disposisi yang masuk.
+          </div>
+        ) : (
+          <div className="w-full overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[650px]">
+              <thead>
+                <tr className="bg-slate-50/70 dark:bg-slate-800/40 text-slate-400 text-[11px] font-semibold uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
+                  <th className="py-3 px-5">Nomor Surat</th>
+                  <th className="py-3 px-5">Pegawai Ditugaskan</th>
+                  <th className="py-3 px-5">Sifat</th>
+                  <th className="py-3 px-5">Tanggal</th>
+                  <th className="py-3 px-5">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                {recentDisposisi.map((item) => {
+                  const namaPegawai = item.pegawai?.nama || item.pegawai?.name || item.nama_pegawai || 'Tanpa Nama';
+                  return (
+                    <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition">
+                      <td className="py-3.5 px-5 font-bold text-slate-800 dark:text-slate-100">
+                        {item.surat_masuk?.nomor_surat || 'N/A'}
+                      </td>
+                      <td className="py-3.5 px-5 font-medium text-slate-700 dark:text-slate-300">
+                        {namaPegawai}
+                      </td>
+                      <td className="py-3.5 px-5">
+                        <span className="font-semibold text-slate-600 dark:text-slate-400">{item.sifat || 'Biasa'}</span>
+                      </td>
+                      <td className="py-3.5 px-5 text-slate-500">
+                        {item.tanggal_disposisi || '-'}
+                      </td>
+                      <td className="py-3.5 px-5">
+                        {getStatusBadge(item.status)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

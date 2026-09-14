@@ -159,6 +159,14 @@ const SuratMasuk = () => {
         await addDoc(collection(db, 'surat_masuk'), payload);
       }
 
+      // Template otomatis kirim notifikasi ke sistem
+      await addDoc(collection(db, 'notifikasi'), {
+        title: editId ? 'Surat Masuk Diperbarui' : 'Surat Masuk Baru',
+        message: `Surat dengan nomor ${formData.nomor_surat} dari ${formData.pengirim} baru saja ${editId ? 'diperbarui' : 'ditambahkan'} ke sistem.`,
+        is_read: false,
+        created_at: new Date().toISOString()
+      });
+
       setIsModalOpen(false);
       resetForm();
       fetchSuratMasuk();

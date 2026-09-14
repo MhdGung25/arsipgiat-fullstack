@@ -113,10 +113,8 @@ const Agenda = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Cari data surat jika ID surat dipilih
     const selectedSurat = suratList.find((s) => s.id === formData.id_surat);
 
-    // Bersihkan payload agar tidak mengirimkan data undefined atau tipe data salah ke Firestore
     const payload = {
       id_surat: formData.id_surat ? formData.id_surat : null,
       nama_acara: formData.nama_acara || '',
@@ -138,6 +136,15 @@ const Agenda = () => {
       } else {
         await addDoc(collection(db, 'agenda'), payload);
       }
+
+      // Template otomatis kirim notifikasi ke sistem
+      await addDoc(collection(db, 'notifikasi'), {
+        title: editId ? 'Agenda Diperbarui' : 'Agenda Kegiatan Baru',
+        message: `Agenda "${formData.nama_acara}" di ${formData.tempat} pada tanggal ${formData.tanggal_giat} telah ${editId ? 'diperbarui' : 'ditambahkan'}.`,
+        is_read: false,
+        created_at: new Date().toISOString()
+      });
+
       setIsModalOpen(false);
       resetForm();
       fetchData();

@@ -120,12 +120,13 @@ const Disposisi = () => {
 
     const selectedSurat = suratOptions.find(s => s.id === formData.id_surat);
     const selectedPegawai = userOptions.find(u => u.id === formData.user_id);
+    const namaTargetPegawai = isManualUser ? (formData.nama_pegawai || '') : (selectedPegawai?.nama || selectedPegawai?.name || '');
 
     // Payload yang dibersihkan agar aman disimpan ke Firestore
     const payload = {
       id_surat: formData.id_surat || '',
       user_id: isManualUser ? '' : (formData.user_id || ''),
-      nama_pegawai: isManualUser ? (formData.nama_pegawai || '') : (selectedPegawai?.nama || selectedPegawai?.name || ''),
+      nama_pegawai: namaTargetPegawai,
       sifat: formData.sifat || 'Biasa',
       catatan: formData.catatan || '',
       tanggal_disposisi: formData.tanggal_disposisi || '',
@@ -146,6 +147,15 @@ const Disposisi = () => {
       } else {
         await addDoc(collection(db, 'disposisi'), payload);
       }
+
+      // Template otomatis kirim notifikasi ke sistem
+      await addDoc(collection(db, 'notifikasi'), {
+        title: editId ? 'Disposisi Diperbarui' : 'Disposisi Penugasan Baru',
+        message: `Surat (${selectedSurat?.nomor_surat || 'N/A'}) didisposisikan kepada ${namaTargetPegawai} dengan sifat ${formData.sifat}.`,
+        is_read: false,
+        created_at: new Date().toISOString()
+      });
+
       setIsModalOpen(false);
       resetForm();
       fetchData();
