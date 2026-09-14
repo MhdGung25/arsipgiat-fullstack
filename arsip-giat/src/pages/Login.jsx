@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, LogIn, Eye, EyeOff, Loader2 } from 'lucide-react'; // Gunakan Loader2
+import { Mail, Lock, LogIn, Eye, EyeOff } from 'lucide-react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase';
 import logo from "../assets/logo-rancaekek.png";
@@ -13,6 +13,16 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Sinkronisasi mode gelap saat berada di halaman login
+  useEffect(() => {
+    const isDark = localStorage.getItem("theme") === "dark";
+    if (isDark) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -137,16 +147,16 @@ const Login = () => {
               className="w-full flex items-center justify-center gap-2.5 bg-emerald-600 dark:bg-emerald-500 text-white font-bold py-3 px-6 rounded-xl hover:bg-emerald-700 dark:hover:bg-emerald-600 transition-colors shadow-md shadow-emerald-200 dark:shadow-none active:scale-[0.98] mt-3 disabled:bg-emerald-400 dark:disabled:bg-emerald-800 cursor-pointer text-sm"
             >
               {loading ? (
-                <>
-                  {/* Gunakan Loader2 yang benar */}
-                  <Loader2 size={18} className="animate-spin" />
-                  Memproses...
-                </>
+                <div className="flex items-center gap-2">
+                  {/* Lingkaran Loading CSS murni untuk menghindari error DOM React */}
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Memproses...</span>
+                </div>
               ) : (
-                <>
+                <div className="flex items-center gap-2">
                   <LogIn size={18} />
-                  Masuk ke Akun
-                </>
+                  <span>Masuk ke Akun</span>
+                </div>
               )}
             </button>
           </form>

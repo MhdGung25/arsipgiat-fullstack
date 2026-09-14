@@ -72,14 +72,14 @@ const Sidebar = ({ isOpen, onClose, user, onLogout }) => {
       {/* Overlay Gelap Mode Mobile */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden transition-opacity"
+          className="fixed inset-0 bg-black/65 backdrop-blur-sm z-40 md:hidden transition-opacity"
           onClick={onClose}
         />
       )}
 
-      {/* Container Sidebar Utama */}
+      {/* Container Sidebar Utama - Diubah ke md:sticky dan md:top-0 agar tetap diam di kiri */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 h-[100dvh] flex flex-col p-4 shadow-xl sm:shadow-none transition-transform duration-300 ease-in-out md:static md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 h-[100dvh] flex flex-col p-4 shadow-xl sm:shadow-none transition-transform duration-300 ease-in-out md:sticky md:top-0 md:translate-x-0 ${
           isDark 
             ? 'bg-[#0b0f19] text-slate-200 border-r border-slate-800/80' 
             : 'bg-white text-slate-700 border-r border-slate-200/80'
