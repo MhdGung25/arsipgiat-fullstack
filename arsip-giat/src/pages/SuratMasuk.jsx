@@ -3,7 +3,6 @@ import {
   Plus, 
   Search, 
   FileText, 
-  Calendar, 
   Paperclip, 
   Edit3, 
   Trash2, 
@@ -11,7 +10,10 @@ import {
   ChevronLeft, 
   ChevronRight, 
   ExternalLink,
-  Upload
+  Upload,
+  Loader2,
+  Eye,
+  Download
 } from 'lucide-react';
 import { 
   collection, 
@@ -21,8 +23,7 @@ import {
   deleteDoc, 
   doc 
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../firebase';
+import { db } from '../firebase';
 
 const SuratMasuk = () => {
   const [suratList, setSuratList] = useState([]);
@@ -31,6 +32,9 @@ const SuratMasuk = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editId, setEditId] = useState(null);
+
+  // State untuk Modal Preview File
+  const [previewFile, setPreviewFile] = useState(null);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -105,13 +109,28 @@ const SuratMasuk = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  // Konversi file lokal menjadi Base64 string
+  const convertFileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
   const handleFileChange = (e) => {
     if (e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
+      const file = e.target.files[0];
+      if (file.size > 2 * 1024 * 1024) {
+        alert('Ukuran file terlalu besar! Maksimal 2 MB untuk lampiran langsung.');
+        return;
+      }
+      setSelectedFile(file);
     }
   };
 
-  // 2. Submit Form (Upload File ke Storage & Simpan ke Firestore)
+  // 2. Submit Form (Simpan ke Firestore)
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -119,11 +138,8 @@ const SuratMasuk = () => {
       setUploading(true);
       let fileUrl = formData.file_url;
 
-      // Jika ada file baru yang dipilih untuk di-upload
       if (selectedFile) {
-        const fileRef = ref(storage, `surat_masuk/${Date.now()}_${selectedFile.name}`);
-        const snapshot = await uploadBytes(fileRef, selectedFile);
-        fileUrl = await getDownloadURL(snapshot.ref);
+        fileUrl = await convertFileToBase64(selectedFile);
       }
 
       const payload = {
@@ -148,7 +164,7 @@ const SuratMasuk = () => {
       fetchSuratMasuk();
     } catch (error) {
       console.error('Gagal menyimpan data:', error);
-      alert('Terjadi kesalahan saat mengunggah file atau menyimpan data ke database.');
+      alert('Terjadi kesalahan saat menyimpan data.');
     } finally {
       setUploading(false);
     }
@@ -183,7 +199,6 @@ const SuratMasuk = () => {
 
   return (
     <div className="space-y-6 p-4 md:p-6 bg-slate-50 dark:bg-slate-950 min-h-screen transition-colors duration-200">
-      {/* Header Halaman */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Kelola Surat Masuk</h1>
@@ -200,9 +215,7 @@ const SuratMasuk = () => {
         </button>
       </div>
 
-      {/* Kontainer Tabel */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800/80 shadow-xs overflow-hidden transition-colors">
-        {/* Top bar pencarian */}
         <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4">
           <h2 className="text-base font-bold text-slate-800 dark:text-white">Daftar Arsip Surat</h2>
           <div className="relative w-full md:w-80">
@@ -260,16 +273,13 @@ const SuratMasuk = () => {
                       </td>
                       <td className="py-4 px-6 text-xs">
                         {item.file_url ? (
-                          <a
-                            href={item.file_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 px-3 py-1.5 rounded-lg font-semibold border border-emerald-200 dark:border-emerald-800/60 transition"
+                          <button
+                            onClick={() => setPreviewFile(item)}
+                            className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 px-3 py-1.5 rounded-lg font-semibold border border-emerald-200 dark:border-emerald-800/60 transition cursor-pointer"
                           >
-                            <Paperclip size={13} />
+                            <Eye size={14} />
                             <span>Lihat Berkas</span>
-                            <ExternalLink size={11} className="ml-0.5" />
-                          </a>
+                          </button>
                         ) : (
                           <span className="text-slate-400 dark:text-slate-500 italic">Tidak Ada File</span>
                         )}
@@ -296,7 +306,6 @@ const SuratMasuk = () => {
               </table>
             </div>
 
-            {/* Paginasi */}
             <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
               <div className="flex items-center gap-2">
                 <span>Tampilkan</span>
@@ -337,7 +346,52 @@ const SuratMasuk = () => {
         )}
       </div>
 
-      {/* Modal Form */}
+      {/* Modal Preview File */}
+      {previewFile && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 dark:bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden shadow-2xl">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-white">Pratinjau Berkas Surat</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">No: {previewFile.nomor_surat} - {previewFile.perihal}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewFile.file_url}
+                  download={`Surat_${previewFile.nomor_surat || 'Arsip'}`}
+                  className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-semibold transition"
+                >
+                  <Download size={14} />
+                  <span>Download</span>
+                </a>
+                <button 
+                  onClick={() => setPreviewFile(null)} 
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 bg-slate-100 dark:bg-slate-950 p-4 flex items-center justify-center overflow-auto">
+              {previewFile.file_url.startsWith('data:image/') ? (
+                <img 
+                  src={previewFile.file_url} 
+                  alt="Pratinjau Surat" 
+                  className="max-h-full max-w-full object-contain rounded-lg shadow-md"
+                />
+              ) : (
+                <iframe
+                  src={previewFile.file_url}
+                  title="Pratinjau PDF"
+                  className="w-full h-full rounded-lg border border-slate-200 dark:border-slate-800 bg-white"
+                ></iframe>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Form Tambah/Edit */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 dark:bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6">
           <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl transition-colors my-auto">
@@ -421,7 +475,7 @@ const SuratMasuk = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-                  Upload Berkas (PDF, JPG, PNG)
+                  Upload Berkas (PDF, JPG, PNG - Maks 2MB)
                 </label>
                 <div className="flex items-center gap-2">
                   <label className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold cursor-pointer transition">
@@ -465,9 +519,10 @@ const SuratMasuk = () => {
                 <button
                   type="submit"
                   disabled={uploading}
-                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-semibold transition cursor-pointer disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white text-xs font-semibold transition cursor-pointer disabled:opacity-50"
                 >
-                  {uploading ? 'Mengunggah...' : (editId ? 'Simpan Perubahan' : 'Tambah Surat')}
+                  {uploading && <Loader2 size={14} className="animate-spin" />}
+                  <span>{uploading ? 'Menyimpan...' : (editId ? 'Simpan Perubahan' : 'Tambah Surat')}</span>
                 </button>
               </div>
             </form>
