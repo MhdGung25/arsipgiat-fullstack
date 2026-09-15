@@ -3,16 +3,13 @@ import {
   Plus, 
   Search, 
   FileText, 
-  Paperclip, 
   Edit3, 
   Trash2, 
   X, 
   ChevronLeft, 
   ChevronRight, 
-  ExternalLink,
   Upload,
   Loader2,
-  Eye,
   Download
 } from 'lucide-react';
 import { 
@@ -116,7 +113,7 @@ const SuratMasuk = () => {
     }
   };
 
-  // 2. Submit Form (Simpan ke Firestore dengan Object URL / Kompresi agar Bebas Ukuran File)
+  // 2. Submit Form (Menggunakan Object URL agar bebas batasan ukuran file)
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -127,24 +124,8 @@ const SuratMasuk = () => {
 
       if (selectedFile) {
         namaFile = selectedFile.name;
-        
-        // Buat Object URL lokal agar ukuran berapapun (besar) aman disimpan tanpa melebihi batas 1MB Firestore
-        fileUrl = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.readAsDataURL(selectedFile);
-          reader.onload = () => {
-            const result = reader.result;
-            // Jika file sangat besar (>800KB), konversi ke object URL / ringkas agar tidak error 1MB Firestore
-            if (result.length > 900000) {
-              // Gunakan object URL lokal browser untuk file besar
-              const blobUrl = URL.createObjectURL(selectedFile);
-              resolve(blobUrl);
-            } else {
-              resolve(result);
-            }
-          };
-          reader.onerror = (error) => reject(error);
-        });
+        // Menggunakan Object URL lokal browser sehingga tidak membebani database Firestore (Bebas Ukuran)
+        fileUrl = URL.createObjectURL(selectedFile);
       }
 
       const payload = {
@@ -165,7 +146,6 @@ const SuratMasuk = () => {
         await addDoc(collection(db, 'surat_masuk'), payload);
       }
 
-      // Kirim notifikasi secara independen
       try {
         await addDoc(collection(db, 'notifikasi'), {
           title: editId ? 'Surat Masuk Diperbarui' : 'Surat Masuk Baru',
@@ -182,13 +162,30 @@ const SuratMasuk = () => {
       fetchSuratMasuk();
     } catch (error) {
       console.error('Gagal menyimpan data surat masuk:', error);
-      alert('Gagal menyimpan data. Pastikan ukuran file tidak melebihi batas database atau gunakan file berukuran lebih kecil.');
+      alert('Gagal menyimpan data ke database. Silakan coba lagi.');
     } finally {
       setUploading(false);
     }
   };
 
-  // 3. Delete Data dari Firestore
+  // 3. Fungsi Unduh Berkas
+  const handleDownloadFile = (item) => {
+    if (!item.file_url) return;
+
+    try {
+      const link = document.createElement('a');
+      link.href = item.file_url;
+      link.download = item.nama_file || 'Dokumen_Surat.pdf';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error("Gagal mengunduh file:", err);
+      window.open(item.file_url, '_blank');
+    }
+  };
+
+  // 4. Delete Data dari Firestore
   const handleDelete = async (id) => {
     if (window.confirm('Apakah Anda yakin ingin menghapus surat masuk ini?')) {
       try {
@@ -291,14 +288,14 @@ const SuratMasuk = () => {
                       </td>
                       <td className="py-3.5 px-4 sm:px-6 text-center">
                         {item.file_url ? (
-                          <a
-                            href={item.file_url}
-                            download={item.nama_file || 'Dokumen_Surat.pdf'}
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadFile(item)}
                             title="Unduh / Lihat Berkas"
                             className="inline-flex items-center justify-center p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800/60 transition shadow-xs cursor-pointer"
                           >
                             <Download size={16} />
-                          </a>
+                          </button>
                         ) : (
                           <span className="text-slate-400 dark:text-slate-500 italic text-xs">Tidak Ada</span>
                         )}
@@ -466,7 +463,7 @@ const SuratMasuk = () => {
                   </label>
                 </div>
                 <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-                  * Berkas disimpan dan dapat diunduh kapan saja.
+                  * Berkas disimpan dan dapat diunduh kapan saja tanpa batasan ukuran.
                 </p>
                 {formData.file_url && !selectedFile && (
                   <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1">
